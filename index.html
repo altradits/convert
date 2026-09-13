@@ -795,10 +795,8 @@
                         <div class="card-title-icon">⚡</div>
                         Deposit & Conversion
                     </div>
-                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                        <button class="btn-secondary" style="font-size: 0.72rem; padding: 3px 6px;" onclick="fillSampleInvoice()">⚡ BOLT11</button>
-                        <button class="btn-secondary" style="font-size: 0.72rem; padding: 3px 6px;" onclick="fillSampleLNURL()">🔗 LNURL</button>
-                        <button class="btn-secondary" style="font-size: 0.72rem; padding: 3px 6px;" onclick="fillSampleAddress()">📧 Address</button>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn-secondary" style="font-size: 0.75rem; padding: 4px 10px;" onclick="clearDestination()">✕ Clear</button>
                     </div>
                 </div>
 
@@ -807,7 +805,7 @@
                     <label class="form-label" for="phoneInput">M-Pesa Mobile Number</label>
                     <div class="input-wrapper">
                         <span class="input-prefix">+254</span>
-                        <input type="tel" id="phoneInput" class="form-input has-prefix" placeholder="707172370" maxlength="9" value="707172370" oninput="validatePhone()">
+                        <input type="tel" id="phoneInput" class="form-input has-prefix" placeholder="7XXXXXXXX" maxlength="9" value="" oninput="validatePhone()">
                     </div>
                     <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Enter 9 digits (starts with 7 or 1). STK prompt is sent directly to this phone.</small>
                 </div>
@@ -1025,7 +1023,6 @@
     <script>
         let KES_PER_BTC = 8500000.0;
         const BOLT11_REGEX = /^(lnbc|lntb|lnbcrt)[0-9]+[munp]?[a-z0-9]+1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+$/i;
-        const SAMPLE_INVOICE = "lnbc1u1p3xxxxpp5mocktestsample100satsettlementinvoicetest11223344556677889900aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz9988";
 
         let currentTxId = null;
         let activeTab = 'lnbits';
@@ -1089,9 +1086,6 @@
             const phone = document.getElementById('phoneInput').value.trim();
             return phone.length === 9 && (phone.startsWith('7') || phone.startsWith('1'));
         }
-
-        const SAMPLE_LNURL = "lnurl1dp68gurn8ghj7um9wfmxjcm99e3k7mf0v9cxj0m385ekvcenxc6r2c35xvukxefcv5mkvv34x5ekzd3ev56nyd3hxqurzepexejxxepnxscrvwfnv9nxzcn9xq6xyefhv53x2c35x56nyd3hxqunzd3excurzep6x5ckxefjvgcnvd3s89ex2dfcv4exqdfhx5mxzdp58y6nyv3h8yerzvfkvvenzd3svfuxyvfcvsenjvfcxc6nxvfjvsuxvd33xgunxdp38q6ryd3k8yuxv33nv36nzvpcvscrzdp5xuur2ve58qunqvfc8quxzdpjx4mxzdfkxe3rqe33xverzvmrxvcnydnx8pjnvdpnxu6k2d3nvf6xjdnx8q6xze35x9ek2d3h8q6x2dt9x56xvd3hxa6x2dfn8q6n2dp4x4mxvdrpxsuxvef5xaex2e3ev36xzen99amk2c3585cx2enx8y6n2d3h8q6x2d3j9amk2c35x56nyd3hx56n2dpnxu6n2d3nx46x2c35vcuryd3nxsenqdfexcurzwpjvg6k2wpnxcursvfhxejkyenp8q6nyvfcvqenjvfjxcerzdpjxe6nyd3jvgunvd3jxsenqdp48puxqvp5v56nvdfc8puxqdf4vg6k2wf3xgmnzvpj8q6n2vfh8puxjdm5xf3kvvnx8yexgdec8qunqvfexgmnvvpjxvmrzef3xe3kvvfc8q6nzvfc8q6x2vfkxg6xvdfcx56rvvps8q6nzdpkxg6xvvfc8qunzdp48qux2d3evsenjdpcxgmnjvfe8qun2dfexverjvp58yux2vnjvg6n2df4xgmnjdpjvg6k2wfc8qunvdpsxv6rzvfcxe6rgdpsxvmr2dpsv56nvdf4x4mxzvpnxf3kvdfnxsenjdfcvvenjvfj8qen2wpex33xyd3excurzef58yux2d338quxzer48qunsvfevserjvfcvsenjvfkxg6nywfcv3en2dpnxu6n2d3nx46x2c35vcuryd3nxsenqdfexcurzwpjvg6k2wpnxcursvfhxejkyenp8q6nyvfcvqenjvfjxcerzdpjxe6nyd3jvgunvd3jxsenqdp48puxqvp5v56nvdfc8puxqdf4vg6k2wf3xgmnzvpj8q6n2vfh8puxjdm5xf3kvvnx8yexgdec8qunqvfexgmnvvpjxvmrzef3xe3kvvfc8q6nzvfc8q6x2vfkxg6xvdfcx56rvvps8q6nzdpkxg6xvvfc8qunzdp48qux2d3evsenjdpcxgmnjvfe8qun2dfexverjvp58yux2vnjvg6n2df4xgmnjdpjvg6k2wfc8qunvdpsxv6rzvfcxe6rgdpsxvmr2dpsv56nvdf4x4mxzvpnxf3kvdfnxsenjdfcvvenjvfj8qen2wpex33xyd3excurzef58yux2d338quxzer48qunsvfevserjvfcvsenjvfkxg6nywfcv3en2d3ev46x2d3ev56nyd3hx5mnqd338pux2vfcxqux2d3j9amk2c35v56r2d3exqurzepexgunqvfcvsenqvfcxqunzdfcvven2wp48qunzdp58qunqvfcvsenqvfcxqun2dp48qux2d3evsenjdpcxgmnjvfe8qun2dfexverjvp58yux2vnjvg6n2df4xgmnjdpjvg6k2wfc8qunvdpsxv6rzvfcxe6rgdpsxvmr2dpsv56nvdf4x4mxzvpnxf3kvdfnxsenjdfcvvenjvfj8qen2wpex33xyd3excurzef58yux2d338quxzer48qunsvfevserjvfcvsenjvfkxg6nywfcv3en2";
-        const SAMPLE_ADDRESS = "satoshi@blink.sv";
 
         async function onInvoiceInput() {
             const raw = document.getElementById('invoiceInput').value.trim();
@@ -1185,22 +1179,10 @@
             }
         }
 
-        function fillSampleInvoice() {
-            document.getElementById('invoiceInput').value = SAMPLE_INVOICE;
+        function clearDestination() {
+            document.getElementById('invoiceInput').value = '';
             onInvoiceInput();
-            showToast("Sample 100 Sat BOLT11 invoice loaded");
-        }
-
-        function fillSampleLNURL() {
-            document.getElementById('invoiceInput').value = SAMPLE_LNURL;
-            onInvoiceInput();
-            showToast("Sample LNURL-pay loaded");
-        }
-
-        function fillSampleAddress() {
-            document.getElementById('invoiceInput').value = SAMPLE_ADDRESS;
-            onInvoiceInput();
-            showToast("Sample Lightning Address loaded");
+            showToast("Destination cleared");
         }
 
         function fillLNbitsUrl(url) {
@@ -1216,7 +1198,7 @@
                     showToast("Pasted from clipboard");
                 }
             } catch (e) {
-                fillSampleInvoice();
+                showToast("Please paste directly into the box");
             }
         }
 
@@ -1372,13 +1354,14 @@
             showToast("⚡ Dispatching payment to Lightning provider...");
 
             try {
+                const phoneVal = document.getElementById('phoneInput').value.trim();
                 const settleRes = await fetch('/api/v1/payments/instant-settle', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         invoice: invoice,
                         amount_kes: amount,
-                        phone: "+254707172370"
+                        phone: phoneVal ? "+254" + phoneVal : ""
                     })
                 });
 

@@ -41,7 +41,7 @@ class _TransactionStatusScreenState extends State<TransactionStatusScreen> {
         try {
           final response = await http.get(
             Uri.parse(ApiConstants.paymentStatus(widget.txId!)),
-          ).timeout(const Duration(seconds: 2));
+          ).timeout(const Duration(seconds: 3));
 
           if (response.statusCode == 200) {
             final data = jsonDecode(response.body);
@@ -60,23 +60,17 @@ class _TransactionStatusScreenState extends State<TransactionStatusScreen> {
               return;
             }
           }
-        } catch (_) {
-          // Fallback to time-based simulation below
-        }
+        } catch (_) {}
       }
 
-      // Demo simulated progression if backend status endpoint is unreachable
-      if (timer.tick == 2 && mounted) {
-        setState(() {
-          _status = 'MPESA_CONFIRMED';
-          _mpesaReceipt = 'SDF893JK2L';
-        });
-      } else if (timer.tick == 4 && mounted) {
-        setState(() {
-          _status = 'SETTLED';
-          _preimage = '3b9c7e14d8f029...';
-        });
+      if (timer.tick >= 30) {
         timer.cancel();
+        if (mounted && _status == 'PENDING_STK') {
+          setState(() {
+            _status = 'MPESA_FAILED';
+            _failureReason = 'Transaction timed out waiting for PIN confirmation';
+          });
+        }
       }
     });
   }

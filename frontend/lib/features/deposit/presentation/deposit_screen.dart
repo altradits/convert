@@ -98,7 +98,6 @@ class _DepositScreenState extends State<DepositScreen> with WidgetsBindingObserv
 
     setState(() => _isSubmitting = true);
 
-    String? txId;
     try {
       final response = await http.post(
         Uri.parse(ApiConstants.initiateDeposit),
@@ -108,30 +107,48 @@ class _DepositScreenState extends State<DepositScreen> with WidgetsBindingObserv
           'amount_kes': amount,
           'invoice': invoice,
         }),
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 10));
+
+      setState(() => _isSubmitting = false);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        txId = data['transaction_id'];
+        final txId = data['transaction_id'];
+
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TransactionStatusScreen(
+                phone: widget.verifiedPhone,
+                amountKES: amount,
+                invoice: invoice,
+                txId: txId,
+              ),
+            ),
+          );
+        }
+      } else {
+        final err = jsonDecode(response.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(err['error'] ?? 'Deposit initiation failed'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       }
-    } catch (_) {
-      // Fallback allowed for demo
-    }
-
-    setState(() => _isSubmitting = false);
-
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TransactionStatusScreen(
-            phone: widget.verifiedPhone,
-            amountKES: amount,
-            invoice: invoice,
-            txId: txId,
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Network error: $e'),
+            backgroundColor: Colors.redAccent,
           ),
-        ),
-      );
+        );
+      }
     }
   }
 

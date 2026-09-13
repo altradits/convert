@@ -39,41 +39,44 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
         Uri.parse(ApiConstants.requestOtp),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone_number': fullPhoneNumber}),
-      ).timeout(const Duration(seconds: 5), onTimeout: () {
-        // Fallback simulation for offline testing
-        return http.Response(jsonEncode({'message': 'Simulated OTP', 'dev_otp': '123456'}), 200);
-      });
+      ).timeout(const Duration(seconds: 10));
 
-      setState(() {
-        _isLoading = false;
-        _otpSent = true;
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          _devOtp = data['dev_otp'];
-          if (_devOtp != null) {
-            _otpController.text = _devOtp!;
-          }
+      setState(() => _isLoading = false);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        _devOtp = data['dev_otp'];
+        setState(() => _otpSent = true);
+        if (_devOtp != null) {
+          _otpController.text = _devOtp!;
         }
-      });
-
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('OTP sent to $fullPhoneNumber'),
+              backgroundColor: Colors.indigo,
+            ),
+          );
+        }
+      } else {
+        final err = jsonDecode(response.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(err['error'] ?? 'Failed to send OTP'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('OTP sent to $fullPhoneNumber ${_devOtp != null ? "($_devOtp)" : ""}'),
-            backgroundColor: Colors.indigo,
+            content: Text('Network error: $e'),
+            backgroundColor: Colors.redAccent,
           ),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _otpSent = true;
-        _devOtp = '123456';
-        _otpController.text = '123456';
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Simulated OTP sent to $fullPhoneNumber (123456)')),
         );
       }
     }
@@ -92,26 +95,44 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
     final fullPhoneNumber = "+254${_phoneController.text.trim()}";
 
     try {
-      await http.post(
+      final response = await http.post(
         Uri.parse(ApiConstants.verifyOtp),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'phone_number': fullPhoneNumber, 'code': code}),
-      ).timeout(const Duration(seconds: 5), onTimeout: () {
-        return http.Response(jsonEncode({'message': 'Success'}), 200);
-      });
-    } catch (_) {
-      // Fallback allowed for demo
-    }
+      ).timeout(const Duration(seconds: 10));
 
-    setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
 
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DepositScreen(verifiedPhone: fullPhoneNumber),
-        ),
-      );
+      if (response.statusCode == 200) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DepositScreen(verifiedPhone: fullPhoneNumber),
+            ),
+          );
+        }
+      } else {
+        final err = jsonDecode(response.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(err['error'] ?? 'Invalid verification code'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification error: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
