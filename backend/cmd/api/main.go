@@ -103,6 +103,18 @@ func main() {
 	router := gin.Default()
 	router.Use(corsMiddleware())
 
+	// Serve static web app if available
+	if _, err := os.Stat("./web/index.html"); err == nil {
+		router.StaticFile("/", "./web/index.html")
+		router.StaticFile("/index.html", "./web/index.html")
+	} else if _, err := os.Stat("../index.html"); err == nil {
+		router.StaticFile("/", "../index.html")
+		router.StaticFile("/index.html", "../index.html")
+	} else if _, err := os.Stat("index.html"); err == nil {
+		router.StaticFile("/", "index.html")
+		router.StaticFile("/index.html", "index.html")
+	}
+
 	// Health check
 	router.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
