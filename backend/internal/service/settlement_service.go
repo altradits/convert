@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -74,33 +75,23 @@ func (s *SettlementService) InitiateDeposit(ctx context.Context, phone string, a
 	}
 
 	// 3. Trigger Safaricom Daraja STK Push
-	accountRef := "Yebente-" + phone
-	var merchantReqID, checkoutReqID, customerMessage string
+	if s.darajaService == nil {
+		return nil, errors.New("Safaricom Daraja service not initialized")
+	}
 
-	if s.darajaService != nil {
-		stkResp, err := s.darajaService.TriggerSTKPush(ctx, phone, int64(math.Round(amountKES)), accountRef)
-		if err != nil {
-			log.Printf("Daraja STK push warning: %v (continuing in testbed mode)", err)
-			merchantReqID = fmt.Sprintf("MR-%d", uuid.New().ID())
-			checkoutReqID = fmt.Sprintf("ws_CO_%s", uuid.New().String()[:12])
-			customerMessage = "Success. Request accepted for processing"
-		} else {
-			merchantReqID = stkResp.MerchantRequestID
-			checkoutReqID = stkResp.CheckoutRequestID
-			customerMessage = stkResp.CustomerMessage
-		}
-	} else {
-		merchantReqID = fmt.Sprintf("MR-%d", uuid.New().ID())
-		checkoutReqID = fmt.Sprintf("ws_CO_%s", uuid.New().String()[:12])
-		customerMessage = "Success. Request accepted for processing"
+	accountRef := "Yebente-" + phone
+	stkResp, err := s.darajaService.TriggerSTKPush(ctx, phone, int64(math.Round(amountKES)), accountRef)
+	if err != nil {
+		log.Printf("Daraja STK push failed for phone %s: %v", phone, err)
+		return nil, fmt.Errorf("Safaricom STK push failed: %w", err)
 	}
 
 	// 4. Record transaction in database with PENDING_STK status
 	tx := &domain.Transaction{
 		ID:                uuid.New(),
 		UserID:            userID,
-		MerchantRequestID: &merchantReqID,
-		CheckoutRequestID: &checkoutReqID,
+		MerchantRequestID: &stkResp.MerchantRequestID,
+		CheckoutRequestID: &stkResp.CheckoutRequestID,
 		AmountKES:         amountKES,
 		AmountSats:        amountSats,
 		LightningInvoice:  invoice,
@@ -110,13 +101,14 @@ func (s *SettlementService) InitiateDeposit(ctx context.Context, phone string, a
 	if s.paymentRepo != nil {
 		if err := s.paymentRepo.CreateTransaction(ctx, tx); err != nil {
 			log.Printf("Warning: failed to record tx in database: %v", err)
+			return nil, fmt.Errorf("failed to record transaction in database: %w", err)
 		}
 	}
 
 	return &domain.InitiateDepositResponse{
 		TransactionID:     tx.ID,
-		CheckoutRequestID: checkoutReqID,
-		CustomerMessage:   customerMessage,
+		CheckoutRequestID: stkResp.CheckoutRequestID,
+		CustomerMessage:   stkResp.CustomerMessage,
 		Status:            domain.StatusPendingSTK,
 	}, nil
 }

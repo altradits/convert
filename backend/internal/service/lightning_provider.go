@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
@@ -528,6 +527,8 @@ func (m *MultiLightningEngine) PayInvoice(ctx context.Context, invoice string, m
 	lnd := m.lndService
 	m.mu.RUnlock()
 
+	var lastErr error
+
 	// 1. Try active provider if configured
 	if provider != nil && provider.IsConfigured() {
 		log.Printf("Routing Lightning payment via %s...", provider.Name())
@@ -535,7 +536,8 @@ func (m *MultiLightningEngine) PayInvoice(ctx context.Context, invoice string, m
 		if err == nil {
 			return hash, preimage, nil
 		}
-		log.Printf("Payment via %s failed: %v (attempting fallback...)", provider.Name(), err)
+		lastErr = fmt.Errorf("%s payment failed: %w", provider.Name(), err)
+		log.Printf("Payment via %s failed: %v", provider.Name(), err)
 	}
 
 	// 2. Try LND gRPC fallback if available
@@ -545,23 +547,15 @@ func (m *MultiLightningEngine) PayInvoice(ctx context.Context, invoice string, m
 			log.Printf("Routing Lightning payment via Native LND gRPC node...")
 			return hash, preimage, nil
 		}
-		log.Printf("Native LND gRPC payment failed/offline: %v (falling back to simulator...)", err)
+		lastErr = fmt.Errorf("Native LND gRPC payment failed: %w", err)
+		log.Printf("Native LND gRPC payment failed: %v", err)
 	}
 
-	// 3. If in demonstration mode without live node, decode invoice and simulate deterministic settlement
-	var paymentHash string
-	if decoded, err := DecodeBOLT11(invoice); err == nil {
-		paymentHash = decoded.PaymentHash
-		log.Printf("Simulated Lightning settlement dispatched for %d sats (Hash: %s)", decoded.AmountSats, paymentHash)
-	} else {
-		hasher := sha256.New()
-		hasher.Write([]byte(invoice))
-		paymentHash = hex.EncodeToString(hasher.Sum(nil))
-		log.Printf("Simulated Lightning settlement dispatched (Hash: %s)", paymentHash)
+	if lastErr != nil {
+		return "", "", lastErr
 	}
 
-	simulatedPreimage := "sim_preimage_" + paymentHash[:16]
-	return paymentHash, simulatedPreimage, nil
+	return "", "", errors.New("no active Lightning provider configured. Connect LNbits, Blink, or an LND node to dispatch real satoshis")
 }
 
 func (m *MultiLightningEngine) Close() error {

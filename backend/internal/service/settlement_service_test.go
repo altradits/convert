@@ -184,9 +184,16 @@ func TestInitiateDepositAndSettlementFlow(t *testing.T) {
 
 func TestMultiLightningEngine(t *testing.T) {
 	ctx := context.Background()
-	engine := NewMultiLightningEngine(&mockLightningService{})
 
-	// Test default fallback
+	// 1. Unconfigured engine must strictly return an error
+	emptyEngine := NewMultiLightningEngine(nil)
+	_, _, err := emptyEngine.PayInvoice(ctx, "lnbc100u1pj_test", 100)
+	if err == nil {
+		t.Fatalf("expected unconfigured engine to return an error, but got nil")
+	}
+
+	// 2. Test LND fallback provider
+	engine := NewMultiLightningEngine(&mockLightningService{})
 	hash, preimage, err := engine.PayInvoice(ctx, "lnbc100u1pj_test", 100)
 	if err != nil {
 		t.Fatalf("expected payment to succeed: %v", err)
@@ -195,7 +202,7 @@ func TestMultiLightningEngine(t *testing.T) {
 		t.Fatalf("unexpected hash/preimage: %s / %s", hash, preimage)
 	}
 
-	// Test LNbits provider setup
+	// 3. Test LNbits provider setup
 	lnbits := NewLNbitsProvider("https://legend.lnbits.com", "fake_admin_key")
 	if !lnbits.IsConfigured() {
 		t.Fatalf("expected lnbits to be configured")
@@ -205,7 +212,7 @@ func TestMultiLightningEngine(t *testing.T) {
 		t.Fatalf("expected LNbits API active provider")
 	}
 
-	// Test Blink provider setup
+	// 4. Test Blink provider setup
 	blink := NewBlinkProvider("fake_blink_api_key")
 	if !blink.IsConfigured() {
 		t.Fatalf("expected blink to be configured")

@@ -1255,7 +1255,9 @@
             }
         }
 
-        // 1. M-Pesa STK Push Full Flow
+        // 1. M-Pesa STK Push Full Flow (Live Safaricom STK Push & Polling)
+        let pollTimer = null;
+
         async function initiateSTKPush() {
             if (!validatePhone()) {
                 showToast("Please enter a valid 9-digit Kenyan phone number (e.g. 707172370)");
@@ -1276,7 +1278,7 @@
             document.getElementById('receiptCard').classList.remove('show');
 
             updatePipeline(1);
-            showToast("📲 STK Push prompt sent to mobile phone!");
+            showToast("📲 Dispatching Safaricom STK Push prompt to phone...");
 
             try {
                 const depositRes = await fetch('/api/v1/payments/deposit', {
@@ -1289,52 +1291,66 @@
                     })
                 });
 
-                setTimeout(() => {
-                    updatePipeline(2);
-                    showToast("M-Pesa payment confirmed!");
-                }, 2000);
+                const depData = await depositRes.json();
+                if (!depositRes.ok) {
+                    showToast(depData.error || "STK Push initiation failed");
+                    btn.disabled = false;
+                    document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
+                    return;
+                }
 
-                setTimeout(async () => {
-                    try {
-                        const settleRes = await fetch('/api/v1/payments/instant-settle', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({
-                                invoice: invoice,
-                                amount_kes: amount,
-                                phone: phone
-                            })
-                        });
+                currentTxId = depData.transaction_id;
+                showToast(depData.customer_message || "STK Prompt sent! Enter your M-Pesa PIN.");
 
-                        const result = await settleRes.json();
-                        if (settleRes.ok) {
-                            updatePipeline(3);
-
-                            const sats = result.amount_sats || Math.round((amount / KES_PER_BTC) * 100000000);
-                            document.getElementById('receiptAmountKES').innerText = `KES ${amount.toFixed(2)}`;
-                            document.getElementById('receiptSats').innerText = `${sats.toLocaleString()} sats`;
-                            document.getElementById('receiptMpesa').innerText = 'SDF' + Math.floor(100000 + Math.random() * 900000);
-                            document.getElementById('receiptPaymentHash').innerText = result.lightning_payment_hash || 'hash_verified';
-                            document.getElementById('receiptPreimage').innerText = result.lightning_preimage || 'preimage_verified';
-                            document.getElementById('receiptCard').classList.add('show');
-                            
-                            showToast("⚡ Sats delivered to your Lightning wallet!");
-                            checkActiveNode();
-                        } else {
-                            showToast(result.details || result.error || "Payment routing failed");
-                        }
-                    } catch (err) {
-                        showToast("Network error during settlement");
-                    } finally {
+                // Poll real status from backend repository
+                let attempts = 0;
+                if (pollTimer) clearInterval(pollTimer);
+                
+                pollTimer = setInterval(async () => {
+                    attempts++;
+                    if (attempts > 30) { // 60 seconds timeout
+                        clearInterval(pollTimer);
                         btn.disabled = false;
                         document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
+                        showToast("Transaction timeout waiting for M-Pesa PIN confirmation");
+                        return;
                     }
-                }, 3800);
+
+                    try {
+                        const statusRes = await fetch(`/api/v1/payments/${currentTxId}/status`);
+                        if (statusRes.ok) {
+                            const tx = await statusRes.json();
+                            if (tx.status === 'MPESA_CONFIRMED' || tx.status === 'LIGHTNING_PENDING') {
+                                updatePipeline(2);
+                            } else if (tx.status === 'SETTLED') {
+                                clearInterval(pollTimer);
+                                updatePipeline(3);
+
+                                document.getElementById('receiptAmountKES').innerText = `KES ${tx.amount_kes.toFixed(2)}`;
+                                document.getElementById('receiptSats').innerText = `${tx.amount_sats.toLocaleString()} sats`;
+                                document.getElementById('receiptMpesa').innerText = tx.mpesa_receipt_number || 'Safaricom Verified';
+                                document.getElementById('receiptPaymentHash').innerText = tx.lightning_payment_hash || 'hash_verified';
+                                document.getElementById('receiptPreimage').innerText = tx.lightning_preimage || 'preimage_verified';
+                                document.getElementById('receiptCard').classList.add('show');
+
+                                btn.disabled = false;
+                                document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
+                                showToast("⚡ Payment settled! Satoshis delivered.");
+                                checkActiveNode();
+                            } else if (tx.status === 'MPESA_FAILED' || tx.status === 'SETTLEMENT_FAILED') {
+                                clearInterval(pollTimer);
+                                btn.disabled = false;
+                                document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
+                                showToast(`Transaction failed: ${tx.failure_reason || 'Payment rejected'}`);
+                            }
+                        }
+                    } catch (e) {}
+                }, 2000);
 
             } catch (err) {
                 btn.disabled = false;
                 document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
-                showToast("Failed to initiate STK push");
+                showToast("Network error initiating STK push");
             }
         }
 

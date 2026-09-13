@@ -64,11 +64,7 @@ func (h *PaymentHandler) GetStatus(c *gin.Context) {
 	}
 
 	if h.paymentRepo == nil {
-		c.JSON(http.StatusOK, gin.H{
-			"transaction_id": txID,
-			"status":         "SETTLED",
-			"customer_message": "Payment verified in local testbed",
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database repository unavailable"})
 		return
 	}
 
@@ -190,13 +186,13 @@ func (h *PaymentHandler) ConfigureLightning(c *gin.Context) {
 		return
 	}
 
-	if req.ProviderType == "disconnect" || req.ProviderType == "simulation" {
+	if req.ProviderType == "disconnect" {
 		if h.lightningEngine != nil {
 			h.lightningEngine.SetProvider(nil)
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Switched to Built-in Live Simulation Engine",
-			"status":  "DEMO_SIMULATION",
+			"message": "Lightning provider disconnected",
+			"status":  "NOT_CONFIGURED",
 		})
 		return
 	}
@@ -250,9 +246,9 @@ func (h *PaymentHandler) GetLightningConfig(c *gin.Context) {
 	active := h.lightningEngine.GetActiveProvider()
 	if active == nil || !active.IsConfigured() {
 		c.JSON(http.StatusOK, gin.H{
-			"status":   "DEMO_SIMULATION",
-			"provider": "Built-in Live Engine",
-			"message":  "Connect an LNbits, LND, or Blink wallet to dispatch real on-chain/off-chain sats.",
+			"status":   "NOT_CONFIGURED",
+			"provider": "None",
+			"message":  "No Lightning funding wallet connected. Connect LNbits, Blink, or an LND node.",
 		})
 		return
 	}
