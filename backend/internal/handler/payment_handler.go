@@ -108,27 +108,46 @@ func (h *PaymentHandler) DecodeInvoice(c *gin.Context) {
 		Invoice string `json:"invoice" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invoice is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invoice or destination is required"})
+		return
+	}
+
+	dest := service.ClassifyDestination(req.Invoice)
+	quote := h.settlementService.GetRateQuote()
+
+	if dest.Type == service.DestinationLNURL || dest.Type == service.DestinationLightningAddress {
+		res, err := service.ResolveLNURLOrAddress(c.Request.Context(), req.Invoice, 100)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "destination_type": dest.Type})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"destination_type": dest.Type,
+			"resolution":       res,
+			"decoded":          res.Decoded,
+			"estimated_kes":    fmt.Sprintf("%.2f", (float64(res.MinSats)/100000000.0)*quote.ExchangeRate),
+			"exchange_rate":    quote.ExchangeRate,
+		})
 		return
 	}
 
 	decoded, err := service.DecodeBOLT11(req.Invoice)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "destination_type": dest.Type})
 		return
 	}
 
-	// Also calculate estimated KES needed
-	quote := h.settlementService.GetRateQuote()
 	var estimatedKES float64 = 0
 	if decoded.AmountSats > 0 {
 		estimatedKES = (float64(decoded.AmountSats) / 100000000.0) * quote.ExchangeRate
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"decoded":       decoded,
-		"estimated_kes": fmt.Sprintf("%.2f", estimatedKES),
-		"exchange_rate": quote.ExchangeRate,
+		"destination_type": service.DestinationBOLT11,
+		"decoded":          decoded,
+		"estimated_kes":    fmt.Sprintf("%.2f", estimatedKES),
+		"exchange_rate":    quote.ExchangeRate,
 	})
 }
 

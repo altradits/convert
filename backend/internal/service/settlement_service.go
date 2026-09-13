@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strings"
 
 	"github.com/google/uuid"
 	"yebente/internal/domain"
@@ -134,8 +135,24 @@ func (s *SettlementService) ExecuteLightningSettlement(ctx context.Context, txID
 		return "", "", fmt.Errorf("%s", reason)
 	}
 
+	targetInvoice := strings.TrimSpace(invoice)
+	dest := ClassifyDestination(targetInvoice)
+	if dest.Type == DestinationLNURL || dest.Type == DestinationLightningAddress {
+		var satsToRequest int64 = 100
+		if s.paymentRepo != nil {
+			if existingTx, err := s.paymentRepo.GetByID(ctx, txID); err == nil && existingTx != nil && existingTx.AmountSats > 0 {
+				satsToRequest = existingTx.AmountSats
+			}
+		}
+		res, err := ResolveLNURLOrAddress(ctx, targetInvoice, satsToRequest)
+		if err == nil && res.PaymentRequest != "" {
+			targetInvoice = res.PaymentRequest
+			log.Printf("Resolved destination %s to BOLT11 invoice for %d sats", invoice, satsToRequest)
+		}
+	}
+
 	// Max routing fee allowance: 100 Sats
-	paymentHash, preimage, err := s.lndService.PayInvoice(ctx, invoice, 100)
+	paymentHash, preimage, err := s.lndService.PayInvoice(ctx, targetInvoice, 100)
 	if err != nil {
 		reason := err.Error()
 		if s.paymentRepo != nil {

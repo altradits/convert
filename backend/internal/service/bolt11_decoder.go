@@ -28,63 +28,250 @@ type DecodedInvoice struct {
 	IsExpired      bool      `json:"is_expired"`
 }
 
+const bech32Charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+
+type DestinationType string
+
+const (
+	DestinationBOLT11          DestinationType = "BOLT11_INVOICE"
+	DestinationLNURL           DestinationType = "LNURL_PAY"
+	DestinationLightningAddress DestinationType = "LIGHTNING_ADDRESS"
+	DestinationUnknown         DestinationType = "UNKNOWN"
+)
+
+type DestinationInfo struct {
+	Type        DestinationType `json:"type"`
+	CleanTarget string          `json:"clean_target"`
+	Network     string          `json:"network,omitempty"`
+	ResolvedURL string          `json:"resolved_url,omitempty"`
+	IsValid     bool            `json:"is_valid"`
+}
+
 type LightningAddressResolution struct {
-	Address        string          `json:"address"`
+	Type           DestinationType `json:"type"`
+	Target         string          `json:"target"`
+	ResolvedURL    string          `json:"resolved_url,omitempty"`
 	MinSats        int64           `json:"min_sats"`
 	MaxSats        int64           `json:"max_sats"`
 	Description    string          `json:"description"`
+	CommentAllowed int             `json:"comment_allowed,omitempty"`
 	PaymentRequest string          `json:"payment_request,omitempty"`
 	Decoded        *DecodedInvoice `json:"decoded,omitempty"`
 }
 
-// ResolveLightningAddress queries LNURLp endpoint for a lightning address (e.g. user@domain.com) and optionally generates an invoice
-func ResolveLightningAddress(ctx context.Context, address string, amountSats int64) (*LightningAddressResolution, error) {
-	clean := strings.TrimSpace(address)
-	parts := strings.Split(clean, "@")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, errors.New("invalid lightning address format: expected name@domain.com")
+// ConvertBits converts a byte slice from one bit width to another
+func convertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) {
+	acc := uint32(0)
+	bits := uint8(0)
+	var ret []byte
+	maxv := uint32((1 << toBits) - 1)
+	maxAcc := uint32((1 << (fromBits + toBits - 1)) - 1)
+
+	for _, val := range data {
+		if val>>fromBits != 0 {
+			return nil, errors.New("invalid data value in convertBits")
+		}
+		acc = ((acc << fromBits) | uint32(val)) & maxAcc
+		bits += fromBits
+		for bits >= toBits {
+			bits -= toBits
+			ret = append(ret, byte((acc>>bits)&maxv))
+		}
 	}
 
-	username := parts[0]
-	domain := parts[1]
+	if pad {
+		if bits > 0 {
+			ret = append(ret, byte((acc<<(toBits-bits))&maxv))
+		}
+	}
 
-	// 1. Fetch LNURLp metadata
-	lnurlURL := fmt.Sprintf("https://%s/.well-known/lnurlp/%s", domain, username)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, lnurlURL, nil)
+	return ret, nil
+}
+
+// DecodeLNURL converts bech32 encoded lnurl1... strings or raw lnurl URLs into standard https endpoints
+func DecodeLNURL(input string) (string, error) {
+	clean := strings.TrimSpace(input)
+	if strings.HasPrefix(strings.ToLower(clean), "lightning:") {
+		clean = clean[10:]
+	}
+	lower := strings.ToLower(clean)
+
+	if strings.HasPrefix(lower, "lnurlp://") {
+		return "https://" + clean[9:], nil
+	}
+	if strings.HasPrefix(lower, "lnurlw://") {
+		return "https://" + clean[9:], nil
+	}
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return clean, nil
+	}
+
+	if !strings.HasPrefix(lower, "lnurl1") {
+		return "", errors.New("invalid lnurl: must start with lnurl1, lnurlp://, or https://")
+	}
+
+	// Find separator '1' (for lnurl1... it is the first '1' at index 5)
+	sepIdx := 5
+	if len(lower) <= sepIdx || lower[sepIdx] != '1' {
+		sepIdx = strings.Index(lower, "1")
+	}
+	if sepIdx == -1 || sepIdx+1 >= len(lower) {
+		return "", errors.New("invalid bech32 lnurl separator")
+	}
+
+	dataPart := lower[sepIdx+1:]
+	var data5 []byte
+	for _, ch := range dataPart {
+		idx := strings.IndexRune(bech32Charset, ch)
+		if idx == -1 {
+			return "", fmt.Errorf("invalid bech32 character: %c", ch)
+		}
+		data5 = append(data5, byte(idx))
+	}
+
+	// Drop checksum if present (standard 6 chars)
+	if len(data5) > 6 {
+		data5 = data5[:len(data5)-6]
+	}
+
+	data8, err := convertBits(data5, 5, 8, false)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert bech32 bits: %w", err)
+	}
+
+	decodedURL := string(data8)
+	if !strings.HasPrefix(decodedURL, "http://") && !strings.HasPrefix(decodedURL, "https://") {
+		return "", fmt.Errorf("decoded lnurl is not a valid http/https url: %s", decodedURL)
+	}
+
+	return decodedURL, nil
+}
+
+// ClassifyDestination checks whether the destination is BOLT11, Lightning Address, or LNURL
+func ClassifyDestination(input string) *DestinationInfo {
+	clean := strings.TrimSpace(input)
+	if strings.HasPrefix(strings.ToLower(clean), "lightning:") {
+		clean = clean[10:]
+	}
+	lower := strings.ToLower(clean)
+
+	// 1. BOLT11 Invoice
+	if strings.HasPrefix(lower, "lnbc") || strings.HasPrefix(lower, "lntb") || strings.HasPrefix(lower, "lnbcrt") || strings.HasPrefix(lower, "lnsb") {
+		net := "mainnet"
+		if strings.HasPrefix(lower, "lntb") {
+			net = "testnet"
+		} else if strings.HasPrefix(lower, "lnbcrt") {
+			net = "regtest"
+		} else if strings.HasPrefix(lower, "lnsb") {
+			net = "simnet"
+		}
+		return &DestinationInfo{
+			Type:        DestinationBOLT11,
+			CleanTarget: clean,
+			Network:     net,
+			IsValid:     true,
+		}
+	}
+
+	// 2. Lightning Address (user@domain.com)
+	if strings.Contains(clean, "@") && !strings.Contains(clean, "/") && !strings.HasPrefix(lower, "ln") {
+		parts := strings.Split(clean, "@")
+		if len(parts) == 2 && parts[0] != "" && parts[1] != "" && strings.Contains(parts[1], ".") {
+			url := fmt.Sprintf("https://%s/.well-known/lnurlp/%s", parts[1], parts[0])
+			return &DestinationInfo{
+				Type:        DestinationLightningAddress,
+				CleanTarget: clean,
+				ResolvedURL: url,
+				IsValid:     true,
+			}
+		}
+	}
+
+	// 3. Bech32 LNURL or raw LNURL URL
+	if strings.HasPrefix(lower, "lnurl1") || strings.HasPrefix(lower, "lnurlp://") || strings.HasPrefix(lower, "lnurlw://") || (strings.HasPrefix(lower, "https://") && strings.Contains(lower, "lnurl")) {
+		decodedURL, err := DecodeLNURL(clean)
+		if err == nil {
+			return &DestinationInfo{
+				Type:        DestinationLNURL,
+				CleanTarget: clean,
+				ResolvedURL: decodedURL,
+				IsValid:     true,
+			}
+		}
+	}
+
+	return &DestinationInfo{
+		Type:        DestinationUnknown,
+		CleanTarget: clean,
+		IsValid:     false,
+	}
+}
+
+// ResolveLNURLOrAddress handles both human-readable Lightning addresses (user@domain.com) and LNURL-pay endpoints (lnurl1...)
+func ResolveLNURLOrAddress(ctx context.Context, input string, amountSats int64) (*LightningAddressResolution, error) {
+	dest := ClassifyDestination(input)
+	var endpointURL string
+	var destType DestinationType = dest.Type
+
+	if dest.Type == DestinationLightningAddress {
+		endpointURL = dest.ResolvedURL
+	} else if dest.Type == DestinationLNURL {
+		endpointURL = dest.ResolvedURL
+	} else {
+		// Attempt direct LNURL decode
+		url, err := DecodeLNURL(input)
+		if err == nil {
+			endpointURL = url
+			destType = DestinationLNURL
+		} else {
+			// Try as lightning address fallback
+			clean := strings.TrimSpace(input)
+			parts := strings.Split(clean, "@")
+			if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+				endpointURL = fmt.Sprintf("https://%s/.well-known/lnurlp/%s", parts[1], parts[0])
+				destType = DestinationLightningAddress
+			} else {
+				return nil, fmt.Errorf("unsupported destination: expected BOLT11 invoice, LNURL (lnurl1...), or Lightning Address (name@domain.com)")
+			}
+		}
+	}
+
+	// 1. Fetch LNURL metadata
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpointURL, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 12 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to reach lightning address provider %s: %w", domain, err)
+		return nil, fmt.Errorf("failed to reach LNURL endpoint %s: %w", endpointURL, err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
-		return nil, fmt.Errorf("lightning address provider returned %d: %s", res.StatusCode, string(body))
+		return nil, fmt.Errorf("LNURL endpoint returned HTTP %d: %s", res.StatusCode, string(body))
 	}
 
 	var lnurlResp struct {
-		Tag         string `json:"tag"`
-		Callback    string `json:"callback"`
-		MinSendable int64  `json:"minSendable"` // In msats
-		MaxSendable int64  `json:"maxSendable"` // In msats
-		Metadata    string `json:"metadata"`
-		CommentAllowed int `json:"commentAllowed"`
-		Status      string `json:"status"`
-		Reason      string `json:"reason"`
+		Tag            string `json:"tag"`
+		Callback       string `json:"callback"`
+		MinSendable    int64  `json:"minSendable"` // In msats
+		MaxSendable    int64  `json:"maxSendable"` // In msats
+		Metadata       string `json:"metadata"`
+		CommentAllowed int    `json:"commentAllowed"`
+		Status         string `json:"status"`
+		Reason         string `json:"reason"`
 	}
 
 	if err := json.NewDecoder(res.Body).Decode(&lnurlResp); err != nil {
-		return nil, fmt.Errorf("failed to parse lnurl response: %w", err)
+		return nil, fmt.Errorf("failed to parse LNURL response: %w", err)
 	}
 
 	if lnurlResp.Status == "ERROR" {
-		return nil, fmt.Errorf("lnurl error: %s", lnurlResp.Reason)
+		return nil, fmt.Errorf("LNURL service error: %s", lnurlResp.Reason)
 	}
 
 	minSats := lnurlResp.MinSendable / 1000
@@ -93,21 +280,37 @@ func ResolveLightningAddress(ctx context.Context, address string, amountSats int
 		minSats = 1
 	}
 
-	result := &LightningAddressResolution{
-		Address:     clean,
-		MinSats:     minSats,
-		MaxSats:     maxSats,
-		Description: fmt.Sprintf("Payment to %s", clean),
+	desc := "Payment via LNURL"
+	if lnurlResp.Metadata != "" {
+		var meta [][]string
+		if err := json.Unmarshal([]byte(lnurlResp.Metadata), &meta); err == nil {
+			for _, item := range meta {
+				if len(item) == 2 && item[0] == "text/plain" {
+					desc = item[1]
+					break
+				}
+			}
+		}
 	}
 
-	// If amount requested, fetch invoice from callback
+	result := &LightningAddressResolution{
+		Type:           destType,
+		Target:         strings.TrimSpace(input),
+		ResolvedURL:    endpointURL,
+		MinSats:        minSats,
+		MaxSats:        maxSats,
+		Description:    desc,
+		CommentAllowed: lnurlResp.CommentAllowed,
+	}
+
+	// 2. If amount specified, fetch live BOLT11 invoice from callback
 	if amountSats > 0 {
 		amountMSats := amountSats * 1000
 		if lnurlResp.MinSendable > 0 && amountMSats < lnurlResp.MinSendable {
-			return nil, fmt.Errorf("amount %d sats is less than minimum %d sats", amountSats, minSats)
+			return nil, fmt.Errorf("amount %d sats is below minimum allowed %d sats", amountSats, minSats)
 		}
 		if lnurlResp.MaxSendable > 0 && amountMSats > lnurlResp.MaxSendable {
-			return nil, fmt.Errorf("amount %d sats exceeds maximum %d sats", amountSats, maxSats)
+			return nil, fmt.Errorf("amount %d sats exceeds maximum allowed %d sats", amountSats, maxSats)
 		}
 
 		separator := "?"
@@ -134,7 +337,7 @@ func ResolveLightningAddress(ctx context.Context, address string, amountSats int
 			Reason string `json:"reason"`
 		}
 		if err := json.NewDecoder(cbRes.Body).Decode(&cbData); err != nil {
-			return nil, fmt.Errorf("failed to decode invoice from callback: %w", err)
+			return nil, fmt.Errorf("failed to decode invoice callback response: %w", err)
 		}
 
 		if cbData.Status == "ERROR" {
@@ -153,6 +356,11 @@ func ResolveLightningAddress(ctx context.Context, address string, amountSats int
 	}
 
 	return result, nil
+}
+
+// ResolveLightningAddress is an alias for ResolveLNURLOrAddress for backwards compatibility
+func ResolveLightningAddress(ctx context.Context, address string, amountSats int64) (*LightningAddressResolution, error) {
+	return ResolveLNURLOrAddress(ctx, address, amountSats)
 }
 
 // DecodeBOLT11 parses standard BOLT11 Lightning payment requests

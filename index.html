@@ -795,8 +795,10 @@
                         <div class="card-title-icon">⚡</div>
                         Deposit & Conversion
                     </div>
-                    <div style="display: flex; gap: 6px;">
-                        <button class="btn-secondary" id="btnSampleInvoice" onclick="fillSampleInvoice()">Sample 100 Sat</button>
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                        <button class="btn-secondary" style="font-size: 0.72rem; padding: 3px 6px;" onclick="fillSampleInvoice()">⚡ BOLT11</button>
+                        <button class="btn-secondary" style="font-size: 0.72rem; padding: 3px 6px;" onclick="fillSampleLNURL()">🔗 LNURL</button>
+                        <button class="btn-secondary" style="font-size: 0.72rem; padding: 3px 6px;" onclick="fillSampleAddress()">📧 Address</button>
                     </div>
                 </div>
 
@@ -810,28 +812,28 @@
                     <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Enter 9 digits (starts with 7 or 1). STK prompt is sent directly to this phone.</small>
                 </div>
 
-                <!-- Destination Lightning Invoice / Address -->
+                <!-- Destination Lightning Invoice / LNURL / Address -->
                 <div class="form-group">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <label class="form-label" for="invoiceInput" style="margin-bottom: 0;">Destination Lightning Address or BOLT11 Invoice</label>
+                        <label class="form-label" for="invoiceInput" style="margin-bottom: 0;">Destination BOLT11 Invoice, LNURL, or Lightning Address</label>
                         <button class="btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;" onclick="pasteClipboard()">📋 Paste</button>
                     </div>
-                    <textarea id="invoiceInput" class="form-textarea" placeholder="Paste Lightning Address (e.g. user@blink.sv, user@getalby.com) or BOLT11 Invoice (lnbc...)" oninput="onInvoiceInput()"></textarea>
+                    <textarea id="invoiceInput" class="form-textarea" placeholder="Paste BOLT11 invoice (lnbc...), LNURL (lnurl1...), or Lightning Address (user@blink.sv)..." oninput="onInvoiceInput()"></textarea>
                     
                     <div id="invoiceBadgeContainer"></div>
                     
                     <!-- Decoded Invoice Metadata Box -->
                     <div class="decoded-box" id="decodedBox">
                         <div class="decoded-row">
-                            <span>Recipient / Network:</span>
+                            <span id="decLabel">Recipient / Type:</span>
                             <span id="decNetwork">Bitcoin Mainnet</span>
                         </div>
                         <div class="decoded-row">
-                            <span>Invoice Amount:</span>
+                            <span>Amount / Limits:</span>
                             <span id="decSats" style="color: var(--primary-light);">100 sats</span>
                         </div>
                         <div class="decoded-row">
-                            <span>Payment Hash:</span>
+                            <span id="decExtraLabel">Details:</span>
                             <span id="decHash" style="font-size: 0.7rem;">987654...</span>
                         </div>
                     </div>
@@ -1072,6 +1074,9 @@
             return phone.length === 9 && (phone.startsWith('7') || phone.startsWith('1'));
         }
 
+        const SAMPLE_LNURL = "lnurl1dp68gurn8ghj7um9wfmxjcm99e3k7mf0v9cxj0m385ekvcenxc6r2c35xvukxefcv5mkvv34x5ekzd3ev56nyd3hxqurzepexejxxepnxscrvwfnv9nxzcn9xq6xyefhv53x2c35x56nyd3hxqunzd3excurzep6x5ckxefjvgcnvd3s89ex2dfcv4exqdfhx5mxzdp58y6nyv3h8yerzvfkvvenzd3svfuxyvfcvsenjvfcxc6nxvfjvsuxvd33xgunxdp38q6ryd3k8yuxv33nv36nzvpcvscrzdp5xuur2ve58qunqvfc8quxzdpjx4mxzdfkxe3rqe33xverzvmrxvcnydnx8pjnvdpnxu6k2d3nvf6xjdnx8q6xze35x9ek2d3h8q6x2dt9x56xvd3hxa6x2dfn8q6n2dp4x4mxvdrpxsuxvef5xaex2e3ev36xzen99amk2c3585cx2enx8y6n2d3h8q6x2d3j9amk2c35x56nyd3hx56n2dpnxu6n2d3nx46x2c35vcuryd3nxsenqdfexcurzwpjvg6k2wpnxcursvfhxejkyenp8q6nyvfcvqenjvfjxcerzdpjxe6nyd3jvgunvd3jxsenqdp48puxqvp5v56nvdfc8puxqdf4vg6k2wf3xgmnzvpj8q6n2vfh8puxjdm5xf3kvvnx8yexgdec8qunqvfexgmnvvpjxvmrzef3xe3kvvfc8q6nzvfc8q6x2vfkxg6xvdfcx56rvvps8q6nzdpkxg6xvvfc8qunzdp48qux2d3evsenjdpcxgmnjvfe8qun2dfexverjvp58yux2vnjvg6n2df4xgmnjdpjvg6k2wfc8qunvdpsxv6rzvfcxe6rgdpsxvmr2dpsv56nvdf4x4mxzvpnxf3kvdfnxsenjdfcvvenjvfj8qen2wpex33xyd3excurzef58yux2d338quxzer48qunsvfevserjvfcvsenjvfkxg6nywfcv3en2dpnxu6n2d3nx46x2c35vcuryd3nxsenqdfexcurzwpjvg6k2wpnxcursvfhxejkyenp8q6nyvfcvqenjvfjxcerzdpjxe6nyd3jvgunvd3jxsenqdp48puxqvp5v56nvdfc8puxqdf4vg6k2wf3xgmnzvpj8q6n2vfh8puxjdm5xf3kvvnx8yexgdec8qunqvfexgmnvvpjxvmrzef3xe3kvvfc8q6nzvfc8q6x2vfkxg6xvdfcx56rvvps8q6nzdpkxg6xvvfc8qunzdp48qux2d3evsenjdpcxgmnjvfe8qun2dfexverjvp58yux2vnjvg6n2df4xgmnjdpjvg6k2wfc8qunvdpsxv6rzvfcxe6rgdpsxvmr2dpsv56nvdf4x4mxzvpnxf3kvdfnxsenjdfcvvenjvfj8qen2wpex33xyd3excurzef58yux2d338quxzer48qunsvfevserjvfcvsenjvfkxg6nywfcv3en2d3ev46x2d3ev56nyd3hx5mnqd338pux2vfcxqux2d3j9amk2c35v56r2d3exqurzepexgunqvfcvsenqvfcxqunzdfcvven2wp48qunzdp58qunqvfcvsenqvfcxqun2dp48qux2d3evsenjdpcxgmnjvfe8qun2dfexverjvp58yux2vnjvg6n2df4xgmnjdpjvg6k2wfc8qunvdpsxv6rzvfcxe6rgdpsxvmr2dpsv56nvdf4x4mxzvpnxf3kvdfnxsenjdfcvvenjvfj8qen2wpex33xyd3excurzef58yux2d338quxzer48qunsvfevserjvfcvsenjvfkxg6nywfcv3en2";
+        const SAMPLE_ADDRESS = "satoshi@blink.sv";
+
         async function onInvoiceInput() {
             const raw = document.getElementById('invoiceInput').value.trim();
             const container = document.getElementById('invoiceBadgeContainer');
@@ -1084,12 +1089,18 @@
                 return;
             }
 
-            // Check if Lightning Address (user@domain.com)
-            if (raw.includes('@') && !raw.startsWith('lnbc') && !raw.startsWith('lntb')) {
+            const lower = raw.toLowerCase();
+            const isLNURL = lower.startsWith('lnurl1') || lower.startsWith('lnurlp://') || lower.startsWith('lnurlw://') || (lower.startsWith('http') && lower.includes('lnurl'));
+            const isLightningAddress = raw.includes('@') && !lower.startsWith('lnbc') && !lower.startsWith('lnurl');
+
+            // 1. Check if LNURL or Lightning Address
+            if (isLNURL || isLightningAddress) {
                 const amount = parseFloat(document.getElementById('amountInput').value) || 0;
                 const sats = Math.round((amount / KES_PER_BTC) * 100000000);
 
-                container.innerHTML = `<span class="validation-badge address">⚡ Resolving Lightning Address ${raw}...</span>`;
+                const labelType = isLNURL ? "LNURL Endpoint" : "Lightning Address";
+                container.innerHTML = `<span class="validation-badge address">⚡ Resolving ${labelType}...</span>`;
+
                 try {
                     const res = await fetch('/api/v1/lightning/resolve-address', {
                         method: 'POST',
@@ -1100,26 +1111,29 @@
                     if (res.ok) {
                         const data = await res.json();
                         const r = data.resolution;
-                        resolvedPR = r.payment_request;
-                        container.innerHTML = `<span class="validation-badge valid">✓ Valid Lightning Address (${r.address})</span>`;
-                        document.getElementById('decNetwork').innerText = `LNURL-pay (${r.address})`;
+                        resolvedPR = r.payment_request || '';
+                        
+                        const titleBadge = isLNURL ? `✓ Valid LNURL-pay Endpoint` : `✓ Valid Lightning Address (${r.target || raw})`;
+                        container.innerHTML = `<span class="validation-badge valid">${titleBadge}</span>`;
+                        
+                        document.getElementById('decNetwork').innerText = isLNURL ? `LNURL-pay (${r.resolved_url ? r.resolved_url.substring(0, 32) + '...' : 'Endpoint'})` : `LNURL-pay (${raw})`;
                         document.getElementById('decSats').innerText = `${sats.toLocaleString()} sats (Min: ${r.min_sats} / Max: ${r.max_sats})`;
-                        document.getElementById('decHash').innerText = resolvedPR ? (resolvedPR.substring(0, 20) + '...') : 'Awaiting amount';
+                        document.getElementById('decHash').innerText = r.description || (resolvedPR ? resolvedPR.substring(0, 20) + '...' : 'Live Invoice Generated on Demand');
                         decBox.classList.add('show');
                         return;
                     } else {
                         const errData = await res.json();
-                        container.innerHTML = `<span class="validation-badge invalid">✕ ${errData.error || 'Address resolution failed'}</span>`;
+                        container.innerHTML = `<span class="validation-badge invalid">✕ ${errData.error || 'Destination resolution failed'}</span>`;
                         decBox.classList.remove('show');
                         return;
                     }
                 } catch (e) {
-                    container.innerHTML = `<span class="validation-badge invalid">✕ Failed to resolve address</span>`;
+                    container.innerHTML = `<span class="validation-badge invalid">✕ Failed to resolve destination</span>`;
                     return;
                 }
             }
 
-            // Normal BOLT11 Invoice decoding
+            // 2. Normal BOLT11 Invoice decoding
             resolvedPR = raw;
             try {
                 const res = await fetch('/api/v1/lightning/decode-invoice', {
@@ -1131,9 +1145,9 @@
                 if (res.ok) {
                     const data = await res.json();
                     const d = data.decoded;
-                    container.innerHTML = `<span class="validation-badge valid">✓ Valid BOLT11 Invoice (${d.network})</span>`;
+                    container.innerHTML = `<span class="validation-badge valid">✓ Valid BOLT11 Invoice (${d.network.toUpperCase()})</span>`;
                     
-                    document.getElementById('decNetwork').innerText = d.network.toUpperCase();
+                    document.getElementById('decNetwork').innerText = `BOLT11 ${d.network.toUpperCase()}`;
                     document.getElementById('decSats').innerText = d.amount_sats > 0 ? `${d.amount_sats.toLocaleString()} sats` : 'Any Amount';
                     document.getElementById('decHash').innerText = d.payment_hash.substring(0, 16) + '...';
                     decBox.classList.add('show');
@@ -1147,10 +1161,10 @@
                 }
             } catch (e) {}
 
-            if (BOLT11_REGEX.test(raw) || raw.startsWith("lnbc") || raw.startsWith("lntb")) {
-                container.innerHTML = `<span class="validation-badge valid">✓ Valid Lightning Invoice Format</span>`;
+            if (BOLT11_REGEX.test(raw) || lower.startsWith("lnbc") || lower.startsWith("lntb") || lower.startsWith("lnurl1")) {
+                container.innerHTML = `<span class="validation-badge valid">✓ Valid Lightning Format</span>`;
             } else {
-                container.innerHTML = `<span class="validation-badge invalid">✕ Invalid BOLT11 or Address format</span>`;
+                container.innerHTML = `<span class="validation-badge invalid">✕ Invalid format (must be BOLT11 lnbc..., LNURL lnurl1..., or address name@domain.com)</span>`;
                 decBox.classList.remove('show');
             }
         }
@@ -1158,7 +1172,19 @@
         function fillSampleInvoice() {
             document.getElementById('invoiceInput').value = SAMPLE_INVOICE;
             onInvoiceInput();
-            showToast("Test 100 Sat BOLT11 invoice loaded");
+            showToast("Sample 100 Sat BOLT11 invoice loaded");
+        }
+
+        function fillSampleLNURL() {
+            document.getElementById('invoiceInput').value = SAMPLE_LNURL;
+            onInvoiceInput();
+            showToast("Sample LNURL-pay loaded");
+        }
+
+        function fillSampleAddress() {
+            document.getElementById('invoiceInput').value = SAMPLE_ADDRESS;
+            onInvoiceInput();
+            showToast("Sample Lightning Address loaded");
         }
 
         function fillLNbitsUrl(url) {
