@@ -50,7 +50,6 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":      fmt.Sprintf("Verification code sent to %s", req.PhoneNumber),
 		"phone_number": req.PhoneNumber,
-		"dev_otp":      otp, // Helpful for local sandbox testing
 		"expires_in":   300,
 	})
 }
@@ -91,8 +90,9 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 	}
 
 	user.IsVerified = true
+	sessionToken := hex.EncodeToString(sha256.New().Sum([]byte(fmt.Sprintf("%s:%d", user.ID.String(), time.Now().UnixNano()))))
 	c.JSON(http.StatusOK, domain.AuthResponse{
-		Token:   "dummy_jwt_token_" + user.ID.String(),
+		Token:   sessionToken,
 		User:    user,
 		Message: "Phone number verified successfully",
 	})

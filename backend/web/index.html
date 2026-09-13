@@ -842,10 +842,10 @@
                     <label class="form-label" for="amountInput">Amount to Convert (KES)</label>
                     <div class="input-wrapper">
                         <span class="input-prefix">KES</span>
-                        <input type="number" id="amountInput" class="form-input has-prefix" placeholder="50.00" value="50" min="1" oninput="updateCalculation()">
+                        <input type="number" id="amountInput" class="form-input has-prefix" placeholder="0.00" value="" min="1" oninput="updateCalculation()">
                     </div>
                     <div class="preset-grid">
-                        <button class="preset-btn active" onclick="setAmount(50)">KES 50</button>
+                        <button class="preset-btn" onclick="setAmount(50)">KES 50</button>
                         <button class="preset-btn" onclick="setAmount(100)">KES 100</button>
                         <button class="preset-btn" onclick="setAmount(500)">KES 500</button>
                         <button class="preset-btn" onclick="setAmount(1000)">KES 1,000</button>
@@ -860,7 +860,7 @@
                     </div>
                     <div class="conversion-sats">
                         <span>⚡</span>
-                        <span id="estimatedSats">588 sats</span>
+                        <span id="estimatedSats">0 sats</span>
                     </div>
                 </div>
 
@@ -926,19 +926,19 @@
                     </div>
                     <div class="receipt-row">
                         <span class="receipt-label">Amount:</span>
-                        <span class="receipt-val" id="receiptAmountKES">KES 50.00</span>
+                        <span class="receipt-val" id="receiptAmountKES">-</span>
                     </div>
                     <div class="receipt-row">
                         <span class="receipt-label">Sats Dispatched:</span>
-                        <span class="receipt-val" style="color: var(--primary-light);" id="receiptSats">588 sats</span>
+                        <span class="receipt-val" style="color: var(--primary-light);" id="receiptSats">-</span>
                     </div>
                     <div class="receipt-row">
                         <span class="receipt-label">Routing Provider:</span>
-                        <span class="receipt-val" id="receiptProvider">Built-in Engine</span>
+                        <span class="receipt-val" id="receiptProvider">-</span>
                     </div>
                     <div class="receipt-row">
                         <span class="receipt-label">M-Pesa Receipt:</span>
-                        <span class="receipt-val" id="receiptMpesa">SDF893JK2L</span>
+                        <span class="receipt-val" id="receiptMpesa">-</span>
                     </div>
                     <div class="receipt-row">
                         <span class="receipt-label">Payment Hash:</span>
@@ -946,7 +946,7 @@
                     </div>
                     <div class="receipt-row">
                         <span class="receipt-label">Cryptographic Preimage:</span>
-                        <span class="receipt-val" style="font-size: 0.72rem; word-break: break-all;" id="receiptPreimage">3b9c7e14d8f029...</span>
+                        <span class="receipt-val" style="font-size: 0.72rem; word-break: break-all;" id="receiptPreimage">-</span>
                     </div>
                 </div>
             </div>
@@ -973,19 +973,14 @@
 
             <!-- LNbits Tab -->
             <div id="tabLnbits">
-                <div class="quick-presets">
-                    <button class="quick-preset-btn" onclick="fillLNbitsUrl('https://legend.lnbits.com')">legend.lnbits.com</button>
-                    <button class="quick-preset-btn" onclick="fillLNbitsUrl('https://demo.lnbits.com')">demo.lnbits.com</button>
-                    <button class="quick-preset-btn" onclick="fillLNbitsUrl('http://127.0.0.1:5000')">Local LNbits</button>
-                </div>
                 <div class="form-group">
                     <label class="form-label">LNbits Instance URL</label>
-                    <input type="url" id="lnbitsUrl" class="form-input" placeholder="https://legend.lnbits.com" value="https://legend.lnbits.com">
+                    <input type="url" id="lnbitsUrl" class="form-input" placeholder="https://legend.lnbits.com" value="">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Wallet Admin Key (X-Api-Key)</label>
                     <input type="password" id="lnbitsKey" class="form-input" placeholder="Paste your LNbits Admin API Key">
-                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Open <a href="https://legend.lnbits.com" target="_blank" style="color: var(--primary-light);">legend.lnbits.com</a>, create wallet & copy the Admin Key.</small>
+                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Open your LNbits wallet and copy the Admin Key.</small>
                 </div>
             </div>
 
@@ -994,7 +989,7 @@
                 <div class="form-group">
                     <label class="form-label">Blink API Key</label>
                     <input type="password" id="blinkKey" class="form-input" placeholder="Paste Blink / Galoy API Key">
-                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Get your API key instantly from Blink app (Settings > Developer > API Key) or <a href="https://dashboard.blink.sv" target="_blank" style="color: var(--primary-light);">dashboard.blink.sv</a>.</small>
+                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Get your API key from Blink app (Settings > Developer > API Key) or <a href="https://dashboard.blink.sv" target="_blank" style="color: var(--primary-light);">dashboard.blink.sv</a>.</small>
                 </div>
             </div>
 
@@ -1002,7 +997,7 @@
             <div id="tabLnd" style="display: none;">
                 <div class="form-group">
                     <label class="form-label">LND REST Host URL</label>
-                    <input type="url" id="lndUrl" class="form-input" placeholder="https://127.0.0.1:8080 or https://node.example.com:8080">
+                    <input type="url" id="lndUrl" class="form-input" placeholder="https://node.example.com:8080">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Admin/Offchain Macaroon (Hex)</label>
@@ -1185,9 +1180,6 @@
             showToast("Destination cleared");
         }
 
-        function fillLNbitsUrl(url) {
-            document.getElementById('lnbitsUrl').value = url;
-        }
 
         async function pasteClipboard() {
             try {
@@ -1447,9 +1439,9 @@
                     body: JSON.stringify({ provider_type: 'disconnect' })
                 });
                 if (res.ok) {
-                    showToast("Switched back to Built-in Live Simulation Engine");
+                    showToast("Lightning provider disconnected");
                     document.getElementById('activeNodeStatus').innerText = "⚡ Connect Wallet";
-                    document.getElementById('receiptProvider').innerText = "Built-in Live Engine";
+                    document.getElementById('receiptProvider').innerText = "Not Connected";
                     closeNodeModal();
                 }
             } catch (e) {}

@@ -73,18 +73,18 @@ func getEnv(key, defaultVal string) string {
 func LoadConfig(ctx context.Context) (*Config, error) {
 	loadDotEnv()
 	cfg := &Config{
-		Port:             getEnv("PORT", "8080"),
-		Environment:      getEnv("ENVIRONMENT", "development"),
-		DatabaseURL:      getEnv("DATABASE_URL", "postgres://yebente:password@localhost:5432/yebente_db?sslmode=disable"),
-		GCPProjectID:     getEnv("GCP_PROJECT_ID", ""),
-		DarajaBaseURL:    getEnv("DARAJA_BASE_URL", "https://sandbox.safaricom.co.ke"),
-		DarajaConsumerKey: getEnv("DARAJA_CONSUMER_KEY", ""),
+		Port:                 getEnv("PORT", "8080"),
+		Environment:          getEnv("ENVIRONMENT", "production"),
+		DatabaseURL:          getEnv("DATABASE_URL", ""),
+		GCPProjectID:         getEnv("GCP_PROJECT_ID", ""),
+		DarajaBaseURL:        getEnv("DARAJA_BASE_URL", "https://api.safaricom.co.ke"),
+		DarajaConsumerKey:    getEnv("DARAJA_CONSUMER_KEY", ""),
 		DarajaConsumerSecret: getEnv("DARAJA_CONSUMER_SECRET", ""),
-		DarajaPasskey:    getEnv("DARAJA_PASSKEY", ""),
-		DarajaShortCode:  getEnv("DARAJA_SHORTCODE", "174379"),
-		DarajaCallbackURL: getEnv("DARAJA_CALLBACK_URL", "https://api.yebente.com/v1/mpesa/callback"),
-		LNDGRPCAddress:   getEnv("LND_GRPC_ADDRESS", "localhost:10009"),
-		DefaultKESPerBTC: 8500000.0, // Default 8.5M KES / BTC (~$65k)
+		DarajaPasskey:        getEnv("DARAJA_PASSKEY", ""),
+		DarajaShortCode:      getEnv("DARAJA_SHORTCODE", ""),
+		DarajaCallbackURL:    getEnv("DARAJA_CALLBACK_URL", ""),
+		LNDGRPCAddress:       getEnv("LND_GRPC_ADDRESS", ""),
+		DefaultKESPerBTC:     8500000.0,
 	}
 
 	// Read direct env vars for LND if provided
