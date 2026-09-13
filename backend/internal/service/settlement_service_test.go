@@ -152,8 +152,8 @@ func TestInitiateDepositAndSettlementFlow(t *testing.T) {
 
 	svc := NewSettlementService(darajaMock, lndMock, paymentRepo, userRepo, 8500000.0)
 
-	// 1. Initiate Deposit
-	invoice := "lnbc10u1pj...mock_invoice"
+	// 1. Initiate Deposit (100u = 100 micro-BTC = 10,000 sats)
+	invoice := "lnbc100u1pj...mock_invoice"
 	resp, err := svc.InitiateDeposit(ctx, "+254707172370", 850.0, invoice)
 	if err != nil {
 		t.Fatalf("failed to initiate deposit: %v", err)

@@ -35,6 +35,34 @@ type Config struct {
 	DefaultKESPerBTC float64
 }
 
+// loadDotEnv reads key-value pairs from .env files if they exist and sets them into os.Environ
+func loadDotEnv() {
+	envFiles := []string{".env", "../.env", "backend/.env", "../../.env"}
+	for _, file := range envFiles {
+		content, err := os.ReadFile(file)
+		if err == nil {
+			lines := strings.Split(string(content), "\n")
+			for _, line := range lines {
+				trimmed := strings.TrimSpace(line)
+				if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+					continue
+				}
+				parts := strings.SplitN(trimmed, "=", 2)
+				if len(parts) == 2 {
+					key := strings.TrimSpace(parts[0])
+					val := strings.TrimSpace(parts[1])
+					val = strings.Trim(val, `"'`)
+					if os.Getenv(key) == "" {
+						os.Setenv(key, val)
+					}
+				}
+			}
+			log.Printf("Loaded environment configuration from %s", file)
+			break
+		}
+	}
+}
+
 func getEnv(key, defaultVal string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
@@ -43,6 +71,7 @@ func getEnv(key, defaultVal string) string {
 }
 
 func LoadConfig(ctx context.Context) (*Config, error) {
+	loadDotEnv()
 	cfg := &Config{
 		Port:             getEnv("PORT", "8080"),
 		Environment:      getEnv("ENVIRONMENT", "development"),

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"yebente/internal/domain"
@@ -21,16 +23,30 @@ type PaymentRepository interface {
 }
 
 type PaymentRepo struct {
-	db *sql.DB
+	db     *sql.DB
+	mu     sync.RWMutex
+	memTxs map[uuid.UUID]*domain.Transaction
 }
 
 func NewPaymentRepository(db *sql.DB) *PaymentRepo {
-	return &PaymentRepo{db: db}
+	return &PaymentRepo{
+		db:     db,
+		memTxs: make(map[uuid.UUID]*domain.Transaction),
+	}
 }
 
 func (r *PaymentRepo) CreateTransaction(ctx context.Context, tx *domain.Transaction) error {
 	if tx.ID == uuid.Nil {
 		tx.ID = uuid.New()
+	}
+	tx.CreatedAt = time.Now()
+	tx.UpdatedAt = time.Now()
+
+	if r.db == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.memTxs[tx.ID] = tx
+		return nil
 	}
 
 	query := `
@@ -63,6 +79,12 @@ func (r *PaymentRepo) CreateTransaction(ctx context.Context, tx *domain.Transact
 }
 
 func (r *PaymentRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Transaction, error) {
+	if r.db == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		return r.memTxs[id], nil
+	}
+
 	query := `
 		SELECT id, user_id, merchant_request_id, checkout_request_id, mpesa_receipt_number,
 		       amount_kes, amount_sats, lightning_invoice, lightning_payment_hash,
@@ -127,6 +149,17 @@ func (r *PaymentRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Transa
 }
 
 func (r *PaymentRepo) GetByCheckoutRequestID(ctx context.Context, checkoutRequestID string) (*domain.Transaction, error) {
+	if r.db == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		for _, tx := range r.memTxs {
+			if tx.CheckoutRequestID != nil && *tx.CheckoutRequestID == checkoutRequestID {
+				return tx, nil
+			}
+		}
+		return nil, nil
+	}
+
 	query := `
 		SELECT id, user_id, merchant_request_id, checkout_request_id, mpesa_receipt_number,
 		       amount_kes, amount_sats, lightning_invoice, lightning_payment_hash,
@@ -191,6 +224,17 @@ func (r *PaymentRepo) GetByCheckoutRequestID(ctx context.Context, checkoutReques
 }
 
 func (r *PaymentRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status domain.TransactionStatus, failureReason *string) error {
+	if r.db == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if tx, ok := r.memTxs[id]; ok {
+			tx.Status = status
+			tx.FailureReason = failureReason
+			tx.UpdatedAt = time.Now()
+		}
+		return nil
+	}
+
 	query := `
 		UPDATE transactions
 		SET status = $1,
@@ -203,6 +247,17 @@ func (r *PaymentRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status dom
 }
 
 func (r *PaymentRepo) UpdateMpesaConfirmed(ctx context.Context, id uuid.UUID, receiptNumber string) error {
+	if r.db == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if tx, ok := r.memTxs[id]; ok {
+			tx.Status = domain.StatusMpesaConfirmed
+			tx.MpesaReceiptNumber = &receiptNumber
+			tx.UpdatedAt = time.Now()
+		}
+		return nil
+	}
+
 	query := `
 		UPDATE transactions
 		SET status = 'MPESA_CONFIRMED',
@@ -215,6 +270,18 @@ func (r *PaymentRepo) UpdateMpesaConfirmed(ctx context.Context, id uuid.UUID, re
 }
 
 func (r *PaymentRepo) UpdateSettled(ctx context.Context, id uuid.UUID, paymentHash, preimage string) error {
+	if r.db == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if tx, ok := r.memTxs[id]; ok {
+			tx.Status = domain.StatusSettled
+			tx.LightningPaymentHash = &paymentHash
+			tx.LightningPreimage = &preimage
+			tx.UpdatedAt = time.Now()
+		}
+		return nil
+	}
+
 	query := `
 		UPDATE transactions
 		SET status = 'SETTLED',
@@ -228,6 +295,17 @@ func (r *PaymentRepo) UpdateSettled(ctx context.Context, id uuid.UUID, paymentHa
 }
 
 func (r *PaymentRepo) UpdateFailed(ctx context.Context, id uuid.UUID, status domain.TransactionStatus, reason string) error {
+	if r.db == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if tx, ok := r.memTxs[id]; ok {
+			tx.Status = status
+			tx.FailureReason = &reason
+			tx.UpdatedAt = time.Now()
+		}
+		return nil
+	}
+
 	query := `
 		UPDATE transactions
 		SET status = $1,

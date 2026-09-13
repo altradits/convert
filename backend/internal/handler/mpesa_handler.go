@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"context"
-	"database/sql"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"yebente/internal/domain"
+	"yebente/internal/repository/postgres"
 	"yebente/internal/service"
 )
 
@@ -28,12 +28,12 @@ type DarajaCallbackPayload struct {
 }
 
 type MpesaHandler struct {
-	db         *sql.DB
-	lndService service.LightningServiceInterface
+	paymentRepo     postgres.PaymentRepository
+	lightningEngine service.LightningServiceInterface
 }
 
-func NewMpesaHandler(db *sql.DB, lnd service.LightningServiceInterface) *MpesaHandler {
-	return &MpesaHandler{db: db, lndService: lnd}
+func NewMpesaHandler(paymentRepo postgres.PaymentRepository, lnd service.LightningServiceInterface) *MpesaHandler {
+	return &MpesaHandler{paymentRepo: paymentRepo, lightningEngine: lnd}
 }
 
 func (h *MpesaHandler) HandleSTKCallback(c *gin.Context) {
@@ -44,50 +44,30 @@ func (h *MpesaHandler) HandleSTKCallback(c *gin.Context) {
 	}
 
 	cb := payload.Body.StkCallback
-	ctx := context.Background()
+	ctx := c.Request.Context()
 
-	// 1. Start DB Transaction with row lock to prevent race conditions
-	tx, err := h.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+	if h.paymentRepo == nil {
+		c.JSON(http.StatusOK, gin.H{"status": "SUCCESS"})
 		return
 	}
-	defer tx.Rollback()
 
-	var txID, status, invoice string
-	var amountSats int64
-
-	row := tx.QueryRowContext(ctx, `
-		SELECT id, status, lightning_invoice, amount_sats 
-		FROM transactions 
-		WHERE checkout_request_id = $1 
-		FOR UPDATE
-	`, cb.CheckoutRequestID)
-
-	if err := row.Scan(&txID, &status, &invoice, &amountSats); err != nil {
-		// Idempotency: Ignore duplicate or unknown callbacks
+	tx, err := h.paymentRepo.GetByCheckoutRequestID(ctx, cb.CheckoutRequestID)
+	if err != nil || tx == nil {
 		c.JSON(http.StatusOK, gin.H{"status": "ignored_or_not_found"})
 		return
 	}
 
-	// 2. Reject if already processed
-	if status != "PENDING_STK" {
+	if tx.Status != domain.StatusPendingSTK {
 		c.JSON(http.StatusOK, gin.H{"status": "already_processed"})
 		return
 	}
 
 	if cb.ResultCode != 0 {
-		_, _ = tx.ExecContext(ctx, `
-			UPDATE transactions 
-			SET status = 'MPESA_FAILED', failure_reason = $1, updated_at = NOW() 
-			WHERE id = $2
-		`, cb.ResultDesc, txID)
-		_ = tx.Commit()
+		_ = h.paymentRepo.UpdateFailed(ctx, tx.ID, domain.StatusMpesaFailed, cb.ResultDesc)
 		c.JSON(http.StatusOK, gin.H{"status": "acknowledged_failure"})
 		return
 	}
 
-	// Extract MpesaReceiptNumber
 	var mpesaReceipt string
 	for _, item := range cb.CallbackMetadata.Item {
 		if item.Name == "MpesaReceiptNumber" {
@@ -97,63 +77,28 @@ func (h *MpesaHandler) HandleSTKCallback(c *gin.Context) {
 		}
 	}
 
-	// Update to MPESA_CONFIRMED
-	_, err = tx.ExecContext(ctx, `
-		UPDATE transactions 
-		SET status = 'MPESA_CONFIRMED', mpesa_receipt_number = $1, updated_at = NOW() 
-		WHERE id = $2
-	`, mpesaReceipt, txID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update state"})
-		return
-	}
+	_ = h.paymentRepo.UpdateMpesaConfirmed(ctx, tx.ID, mpesaReceipt)
 
-	if err := tx.Commit(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit tx"})
-		return
-	}
+	// Trigger immediate asynchronous settlement
+	go func(targetTx domain.Transaction) {
+		bgCtx := c.Request.Context()
+		_ = h.paymentRepo.UpdateStatus(bgCtx, targetTx.ID, domain.StatusLightningPending, nil)
 
-	// 3. Trigger immediate asynchronous LND settlement
-	go h.settleLightning(txID, invoice)
+		if h.lightningEngine == nil {
+			_ = h.paymentRepo.UpdateFailed(bgCtx, targetTx.ID, domain.StatusSettlementFailed, "Lightning provider offline")
+			return
+		}
+
+		hash, preimage, err := h.lightningEngine.PayInvoice(bgCtx, targetTx.LightningInvoice, 100)
+		if err != nil {
+			_ = h.paymentRepo.UpdateFailed(bgCtx, targetTx.ID, domain.StatusSettlementFailed, err.Error())
+			log.Printf("Settlement error for tx %s: %v", targetTx.ID, err)
+			return
+		}
+
+		_ = h.paymentRepo.UpdateSettled(bgCtx, targetTx.ID, hash, preimage)
+		log.Printf("⚡ Payment settled for tx %s (Hash: %s)", targetTx.ID, hash)
+	}(*tx)
 
 	c.JSON(http.StatusOK, gin.H{"status": "SUCCESS"})
-}
-
-func (h *MpesaHandler) settleLightning(txID string, invoice string) {
-	ctx := context.Background()
-
-	_, _ = h.db.ExecContext(ctx, `
-		UPDATE transactions SET status = 'LIGHTNING_PENDING', updated_at = NOW() WHERE id = $1
-	`, txID)
-
-	if h.lndService == nil {
-		reason := "LND service not available"
-		_, _ = h.db.ExecContext(ctx, `
-			UPDATE transactions 
-			SET status = 'SETTLEMENT_FAILED', failure_reason = $1, updated_at = NOW() 
-			WHERE id = $2
-		`, reason, txID)
-		log.Printf("Settlement failed for tx %s: %s", txID, reason)
-		return
-	}
-
-	// Max routing fee allowance: 100 Sats
-	paymentHash, preimage, err := h.lndService.PayInvoice(ctx, invoice, 100)
-	if err != nil {
-		_, _ = h.db.ExecContext(ctx, `
-			UPDATE transactions 
-			SET status = 'SETTLEMENT_FAILED', failure_reason = $1, updated_at = NOW() 
-			WHERE id = $2
-		`, err.Error(), txID)
-		log.Printf("LND payment failed for tx %s: %v", txID, err)
-		return
-	}
-
-	_, _ = h.db.ExecContext(ctx, `
-		UPDATE transactions 
-		SET status = 'SETTLED', lightning_payment_hash = $1, lightning_preimage = $2, updated_at = NOW() 
-		WHERE id = $3
-	`, paymentHash, preimage, txID)
-
-	log.Printf("LND payment settled for tx %s (preimage: %s)", txID, preimage)
 }

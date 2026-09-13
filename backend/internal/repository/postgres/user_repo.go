@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,14 +21,36 @@ type UserRepository interface {
 }
 
 type UserRepo struct {
-	db *sql.DB
+	db      *sql.DB
+	mu      sync.RWMutex
+	memUser map[string]*domain.User // in-memory fallback
 }
 
 func NewUserRepository(db *sql.DB) *UserRepo {
-	return &UserRepo{db: db}
+	return &UserRepo{
+		db:      db,
+		memUser: make(map[string]*domain.User),
+	}
 }
 
 func (r *UserRepo) CreateOrGetUser(ctx context.Context, phone string) (*domain.User, error) {
+	if r.db == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if u, exists := r.memUser[phone]; exists {
+			return u, nil
+		}
+		newUser := &domain.User{
+			ID:          uuid.New(),
+			PhoneNumber: phone,
+			IsVerified:  true,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+		r.memUser[phone] = newUser
+		return newUser, nil
+	}
+
 	query := `
 		INSERT INTO users (phone_number, created_at, updated_at)
 		VALUES ($1, NOW(), NOW())
@@ -64,6 +87,12 @@ func (r *UserRepo) CreateOrGetUser(ctx context.Context, phone string) (*domain.U
 }
 
 func (r *UserRepo) GetByPhone(ctx context.Context, phone string) (*domain.User, error) {
+	if r.db == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		return r.memUser[phone], nil
+	}
+
 	query := `
 		SELECT id, phone_number, is_verified, otp_code_hash, otp_expires_at, created_at, updated_at
 		FROM users
@@ -101,6 +130,17 @@ func (r *UserRepo) GetByPhone(ctx context.Context, phone string) (*domain.User, 
 }
 
 func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+	if r.db == nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		for _, u := range r.memUser {
+			if u.ID == id {
+				return u, nil
+			}
+		}
+		return nil, nil
+	}
+
 	query := `
 		SELECT id, phone_number, is_verified, otp_code_hash, otp_expires_at, created_at, updated_at
 		FROM users
@@ -138,6 +178,19 @@ func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, err
 }
 
 func (r *UserRepo) SetOTP(ctx context.Context, phone string, otpHash string, expiresAt time.Time) error {
+	if r.db == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		u, ok := r.memUser[phone]
+		if !ok {
+			u = &domain.User{ID: uuid.New(), PhoneNumber: phone}
+			r.memUser[phone] = u
+		}
+		u.OTPCodeHash = &otpHash
+		u.OTPExpiresAt = &expiresAt
+		return nil
+	}
+
 	query := `
 		INSERT INTO users (phone_number, otp_code_hash, otp_expires_at, updated_at)
 		VALUES ($1, $2, $3, NOW())
@@ -154,6 +207,17 @@ func (r *UserRepo) SetOTP(ctx context.Context, phone string, otpHash string, exp
 }
 
 func (r *UserRepo) VerifyUser(ctx context.Context, phone string) error {
+	if r.db == nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if u, ok := r.memUser[phone]; ok {
+			u.IsVerified = true
+			u.OTPCodeHash = nil
+			u.OTPExpiresAt = nil
+		}
+		return nil
+	}
+
 	query := `
 		UPDATE users
 		SET is_verified = TRUE,

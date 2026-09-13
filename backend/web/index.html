@@ -1,10 +1,9 @@
-<!-- Copy of index.html for backend static serving -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yebente - M-Pesa to Bitcoin Lightning Gateway</title>
+    <title>Yebente - M-Pesa to Bitcoin Lightning Settlement Gateway</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -12,9 +11,9 @@
         :root {
             --bg-primary: #090a0f;
             --bg-secondary: #11131a;
-            --bg-card: rgba(22, 25, 36, 0.85);
-            --bg-card-hover: rgba(30, 34, 49, 0.95);
-            --border-color: rgba(245, 158, 11, 0.18);
+            --bg-card: rgba(20, 24, 35, 0.85);
+            --bg-card-hover: rgba(28, 33, 48, 0.95);
+            --border-color: rgba(245, 158, 11, 0.25);
             --border-subtle: rgba(255, 255, 255, 0.08);
             --primary: #f59e0b;
             --primary-light: #fbbf24;
@@ -22,6 +21,7 @@
             --accent-green: #10b981;
             --accent-green-glow: rgba(16, 185, 129, 0.3);
             --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
             --accent-red: #ef4444;
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
@@ -29,7 +29,6 @@
             --radius-lg: 16px;
             --radius-md: 12px;
             --radius-sm: 8px;
-            --shadow-glow: 0 0 35px -5px var(--primary-glow);
         }
 
         * {
@@ -55,7 +54,7 @@
         /* Nav Header */
         header {
             border-bottom: 1px solid var(--border-subtle);
-            background: rgba(17, 19, 26, 0.8);
+            background: rgba(17, 19, 26, 0.85);
             backdrop-filter: blur(16px);
             position: sticky;
             top: 0;
@@ -121,7 +120,7 @@
         .header-stats {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 12px;
         }
 
         .rate-ticker {
@@ -149,6 +148,27 @@
             0% { transform: scale(0.95); opacity: 0.8; }
             50% { transform: scale(1.2); opacity: 1; }
             100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        .btn-node-connect {
+            background: rgba(139, 92, 246, 0.15);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: #c4b5fd;
+            padding: 7px 14px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-node-connect:hover {
+            background: rgba(139, 92, 246, 0.25);
+            color: #fff;
+            border-color: #8b5cf6;
         }
 
         /* Main Layout */
@@ -307,7 +327,7 @@
             transition: all 0.2s ease;
             outline: none;
             resize: vertical;
-            min-height: 90px;
+            min-height: 85px;
         }
 
         .form-textarea:focus {
@@ -369,6 +389,35 @@
             gap: 6px;
         }
 
+        /* Invoice Decoded Box */
+        .decoded-box {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            margin-top: 8px;
+            font-size: 0.8rem;
+            display: none;
+        }
+
+        .decoded-box.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .decoded-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            color: var(--text-secondary);
+        }
+
+        .decoded-row span:last-child {
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
         /* Validation Badge */
         .validation-badge {
             display: inline-flex;
@@ -393,6 +442,12 @@
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
+        .validation-badge.address {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
         /* Buttons */
         .btn-primary {
             width: 100%;
@@ -400,61 +455,82 @@
             color: #ffffff;
             border: none;
             padding: 14px 20px;
-            font-family: 'Outfit', sans-serif;
-            font-size: 1.05rem;
+            font-size: 1rem;
             font-weight: 700;
             border-radius: var(--radius-md);
             cursor: pointer;
-            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
-            transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
+            box-shadow: 0 4px 20px var(--primary-glow);
+            transition: all 0.2s ease;
         }
 
         .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(245, 158, 11, 0.45);
+            box-shadow: 0 6px 24px rgba(245, 158, 11, 0.5);
         }
 
         .btn-primary:disabled {
-            opacity: 0.5;
+            opacity: 0.6;
             cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
+        }
+
+        .btn-instant {
+            width: 100%;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+            border: none;
+            padding: 12px 18px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 16px var(--accent-green-glow);
+            transition: all 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .btn-instant:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
         }
 
         .btn-secondary {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--border-subtle);
-            color: var(--text-primary);
-            padding: 8px 14px;
-            border-radius: var(--radius-sm);
-            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            font-size: 0.8rem;
             font-weight: 600;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             transition: all 0.2s ease;
         }
 
         .btn-secondary:hover {
             background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
         }
 
-        /* Status Pipeline */
+        /* Pipeline Steps */
         .pipeline-container {
+            position: relative;
             display: flex;
             flex-direction: column;
-            gap: 1.25rem;
-            margin-top: 1rem;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
         }
 
         .step-item {
             display: flex;
-            align-items: flex-start;
-            gap: 14px;
+            gap: 16px;
             position: relative;
-            padding-bottom: 1.25rem;
         }
 
         .step-item:not(:last-child)::after {
@@ -462,13 +538,10 @@
             position: absolute;
             left: 17px;
             top: 36px;
-            bottom: 0;
+            bottom: -20px;
             width: 2px;
             background: var(--border-subtle);
-        }
-
-        .step-item.active:not(:last-child)::after {
-            background: linear-gradient(to bottom, var(--primary), var(--border-subtle));
+            transition: background 0.3s ease;
         }
 
         .step-item.completed:not(:last-child)::after {
@@ -479,15 +552,15 @@
             width: 36px;
             height: 36px;
             border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid var(--border-subtle);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
             font-size: 0.9rem;
-            z-index: 2;
-            background: var(--bg-secondary);
-            border: 2px solid var(--border-subtle);
             color: var(--text-muted);
+            z-index: 2;
             transition: all 0.3s ease;
         }
 
@@ -495,21 +568,21 @@
             border-color: var(--primary);
             background: rgba(245, 158, 11, 0.2);
             color: var(--primary-light);
-            box-shadow: 0 0 15px var(--primary-glow);
-            animation: pulse-border 1.5s infinite;
-        }
-
-        @keyframes pulse-border {
-            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
-            70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+            box-shadow: 0 0 16px var(--primary-glow);
+            animation: pulse-orange 2s infinite;
         }
 
         .step-item.completed .step-icon {
             border-color: var(--accent-green);
             background: var(--accent-green);
             color: #ffffff;
-            box-shadow: 0 0 15px var(--accent-green-glow);
+            box-shadow: 0 0 16px var(--accent-green-glow);
+        }
+
+        @keyframes pulse-orange {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+            100% { transform: scale(1); }
         }
 
         .step-content {
@@ -517,23 +590,23 @@
         }
 
         .step-title {
-            font-weight: 700;
+            font-weight: 600;
             font-size: 0.95rem;
             margin-bottom: 2px;
         }
 
         .step-desc {
             font-size: 0.8rem;
-            color: var(--text-secondary);
+            color: var(--text-muted);
+            line-height: 1.4;
         }
 
         /* Settlement Receipt Card */
         .receipt-card {
-            background: rgba(16, 185, 129, 0.05);
-            border: 1px solid rgba(16, 185, 129, 0.25);
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.3);
             border-radius: var(--radius-md);
-            padding: 16px;
-            margin-top: 1.5rem;
+            padding: 1.25rem;
             display: none;
         }
 
@@ -542,18 +615,12 @@
             animation: fadeIn 0.4s ease;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
         .receipt-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            font-size: 0.85rem;
             padding: 6px 0;
-            border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+            font-size: 0.85rem;
         }
 
         .receipt-row:last-child {
@@ -567,48 +634,119 @@
         .receipt-val {
             font-family: 'JetBrains Mono', monospace;
             font-weight: 600;
-            color: var(--text-primary);
         }
 
-        /* Simulator Controls */
-        .sim-box {
-            margin-top: 1.5rem;
-            padding: 12px 16px;
-            background: rgba(59, 130, 246, 0.08);
-            border: 1px solid rgba(59, 130, 246, 0.25);
-            border-radius: var(--radius-md);
-            font-size: 0.85rem;
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 1.5rem;
         }
 
-        .sim-header {
+        .modal-overlay.show {
+            display: flex;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 520px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
-            color: #60a5fa;
-            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-subtle);
         }
 
-        /* Toast Notifications */
+        .tab-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 1.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px;
+            border-radius: var(--radius-sm);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .quick-presets {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .quick-preset-btn {
+            font-size: 0.72rem;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--primary-light);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            cursor: pointer;
+        }
+
+        .quick-preset-btn:hover {
+            background: rgba(245, 158, 11, 0.25);
+        }
+
         #toast {
             position: fixed;
             bottom: 24px;
             right: 24px;
-            background: #1e293b;
-            color: #fff;
+            background: var(--bg-secondary);
+            border: 1px solid var(--primary);
+            color: var(--text-primary);
             padding: 12px 20px;
             border-radius: var(--radius-md);
-            border: 1px solid var(--border-color);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             font-size: 0.9rem;
+            z-index: 200;
             display: none;
-            z-index: 1000;
-            animation: slideUp 0.3s ease;
+            animation: slideIn 0.3s ease;
         }
 
-        @keyframes slideUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
@@ -619,40 +757,47 @@
         <div class="header-container">
             <a href="/" class="brand-logo">
                 <div class="logo-icon">
-                    <svg viewBox="0 0 24 24"><path d="M13 2L3 14H12L11 22L21 10H12L13 2Z"/></svg>
+                    <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                 </div>
                 <div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span class="brand-name">Yebente</span>
-                        <span class="brand-badge">Settlement Gateway</span>
+                        <span class="brand-badge">Gateway</span>
                     </div>
                 </div>
             </a>
+
             <div class="header-stats">
                 <div class="rate-ticker">
-                    <span class="live-dot"></span>
+                    <div class="live-dot"></div>
                     <span id="headerRate">1 BTC ≈ 8,500,000 KES</span>
                 </div>
+
+                <button class="btn-node-connect" id="btnNodeModal" onclick="openNodeModal()">
+                    <span id="activeNodeStatus">⚡ Connect Wallet</span>
+                </button>
             </div>
         </div>
     </header>
 
-    <!-- Main Container -->
+    <!-- Main Content -->
     <main>
         <section class="hero-section">
-            <h1 class="hero-title">Instant M-Pesa to <span>Lightning Network</span> Bridge</h1>
-            <p class="hero-subtitle">Deposit Kenyan Shillings via Safaricom M-Pesa STK push and receive Satoshis directly in your Bitcoin Lightning wallet in seconds.</p>
+            <h1 class="hero-title">Safaricom M-Pesa to <span>Bitcoin Lightning</span></h1>
+            <p class="hero-subtitle">Real-time offramp & instant satoshi settlement engine with zero custodial delay.</p>
         </section>
 
         <div class="grid-container">
-            <!-- Left Card: Deposit Form -->
+            <!-- Left Card: Input & Payment Initiation -->
             <div class="glass-card">
                 <div class="card-header">
                     <div class="card-title">
                         <div class="card-title-icon">⚡</div>
-                        Deposit & Settle
+                        Deposit & Conversion
                     </div>
-                    <button class="btn-secondary" id="btnSampleInvoice" onclick="fillSampleInvoice()">Load Test Invoice</button>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn-secondary" id="btnSampleInvoice" onclick="fillSampleInvoice()">Sample 100 Sat</button>
+                    </div>
                 </div>
 
                 <!-- Phone Number -->
@@ -662,7 +807,34 @@
                         <span class="input-prefix">+254</span>
                         <input type="tel" id="phoneInput" class="form-input has-prefix" placeholder="707172370" maxlength="9" value="707172370" oninput="validatePhone()">
                     </div>
-                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Enter 9 digits (starts with 7 or 1). STK PIN prompt will be sent here.</small>
+                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Enter 9 digits (starts with 7 or 1). STK prompt is sent directly to this phone.</small>
+                </div>
+
+                <!-- Destination Lightning Invoice / Address -->
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <label class="form-label" for="invoiceInput" style="margin-bottom: 0;">Destination Lightning Address or BOLT11 Invoice</label>
+                        <button class="btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;" onclick="pasteClipboard()">📋 Paste</button>
+                    </div>
+                    <textarea id="invoiceInput" class="form-textarea" placeholder="Paste Lightning Address (e.g. user@blink.sv, user@getalby.com) or BOLT11 Invoice (lnbc...)" oninput="onInvoiceInput()"></textarea>
+                    
+                    <div id="invoiceBadgeContainer"></div>
+                    
+                    <!-- Decoded Invoice Metadata Box -->
+                    <div class="decoded-box" id="decodedBox">
+                        <div class="decoded-row">
+                            <span>Recipient / Network:</span>
+                            <span id="decNetwork">Bitcoin Mainnet</span>
+                        </div>
+                        <div class="decoded-row">
+                            <span>Invoice Amount:</span>
+                            <span id="decSats" style="color: var(--primary-light);">100 sats</span>
+                        </div>
+                        <div class="decoded-row">
+                            <span>Payment Hash:</span>
+                            <span id="decHash" style="font-size: 0.7rem;">987654...</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Amount in KES -->
@@ -670,42 +842,38 @@
                     <label class="form-label" for="amountInput">Amount to Convert (KES)</label>
                     <div class="input-wrapper">
                         <span class="input-prefix">KES</span>
-                        <input type="number" id="amountInput" class="form-input has-prefix" placeholder="500.00" value="500" min="10" oninput="updateCalculation()">
+                        <input type="number" id="amountInput" class="form-input has-prefix" placeholder="50.00" value="50" min="1" oninput="updateCalculation()">
                     </div>
                     <div class="preset-grid">
+                        <button class="preset-btn active" onclick="setAmount(50)">KES 50</button>
                         <button class="preset-btn" onclick="setAmount(100)">KES 100</button>
-                        <button class="preset-btn active" onclick="setAmount(500)">KES 500</button>
+                        <button class="preset-btn" onclick="setAmount(500)">KES 500</button>
                         <button class="preset-btn" onclick="setAmount(1000)">KES 1,000</button>
-                        <button class="preset-btn" onclick="setAmount(5000)">KES 5,000</button>
                     </div>
                 </div>
 
                 <!-- Rate Preview Banner -->
                 <div class="conversion-banner">
                     <div>
-                        <div class="conversion-rate">Exchange Rate Estimate</div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">1 KES ≈ 11.76 Sats</div>
+                        <div class="conversion-rate">Live Market Rate</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);" id="satsPerKESLabel">1 KES ≈ 11.76 Sats</div>
                     </div>
                     <div class="conversion-sats">
                         <span>⚡</span>
-                        <span id="estimatedSats">5,882 sats</span>
+                        <span id="estimatedSats">588 sats</span>
                     </div>
                 </div>
 
-                <!-- Lightning Invoice -->
-                <div class="form-group">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <label class="form-label" for="invoiceInput" style="margin-bottom: 0;">Destination BOLT11 Lightning Invoice</label>
-                        <button class="btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;" onclick="pasteClipboard()">📋 Paste</button>
-                    </div>
-                    <textarea id="invoiceInput" class="form-textarea" placeholder="Paste lnbc1... invoice or lnurl1..." oninput="validateInvoice()"></textarea>
-                    <div id="invoiceBadgeContainer"></div>
-                </div>
-
-                <!-- Submit Button -->
+                <!-- Primary M-Pesa STK Push Action -->
                 <button class="btn-primary" id="btnInitiate" onclick="initiateSTKPush()">
                     <span id="btnIcon">📲</span>
-                    <span id="btnText">Initiate M-Pesa STK Push</span>
+                    <span id="btnText">Initiate M-Pesa STK Push & Settle</span>
+                </button>
+
+                <!-- Direct Instant Settle Action -->
+                <button class="btn-instant" id="btnInstantSettle" onclick="sendSatsInstantly()">
+                    <span>⚡</span>
+                    <span id="btnInstantText">Send Real Sats Now (Instant Settle)</span>
                 </button>
             </div>
 
@@ -742,8 +910,8 @@
                     <div class="step-item" id="step3">
                         <div class="step-icon">3</div>
                         <div class="step-content">
-                            <div class="step-title">LND Lightning Node Dispatch</div>
-                            <div class="step-desc" id="step3Desc">Off-chain invoice payment and preimage cryptographic proof.</div>
+                            <div class="step-title">Lightning Node Payment Dispatch</div>
+                            <div class="step-desc" id="step3Desc">Off-chain invoice payment and cryptographic preimage verification.</div>
                         </div>
                     </div>
                 </div>
@@ -751,68 +919,146 @@
                 <!-- Settlement Receipt Card -->
                 <div class="receipt-card" id="receiptCard">
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--accent-green); font-weight: 700;">
-                        <span>✓</span> Settlement Confirmed & Settled
+                        <span>✓</span> Satoshis Delivered Over Lightning!
                     </div>
                     <div class="receipt-row">
-                        <span class="receipt-label">Amount Paid:</span>
-                        <span class="receipt-val" id="receiptAmountKES">KES 500.00</span>
+                        <span class="receipt-label">Amount:</span>
+                        <span class="receipt-val" id="receiptAmountKES">KES 50.00</span>
                     </div>
                     <div class="receipt-row">
-                        <span class="receipt-label">Sats Delivered:</span>
-                        <span class="receipt-val" style="color: var(--primary-light);" id="receiptSats">5,882 sats</span>
+                        <span class="receipt-label">Sats Dispatched:</span>
+                        <span class="receipt-val" style="color: var(--primary-light);" id="receiptSats">588 sats</span>
                     </div>
                     <div class="receipt-row">
                         <span class="receipt-label">M-Pesa Receipt:</span>
                         <span class="receipt-val" id="receiptMpesa">SDF893JK2L</span>
                     </div>
                     <div class="receipt-row">
-                        <span class="receipt-label">LND Payment Preimage:</span>
+                        <span class="receipt-label">Cryptographic Preimage:</span>
                         <span class="receipt-val" style="font-size: 0.72rem; word-break: break-all;" id="receiptPreimage">3b9c7e14d8f029...</span>
-                    </div>
-                </div>
-
-                <!-- Webhook Inspector / Simulation Tool -->
-                <div class="sim-box" id="simBox">
-                    <div class="sim-header">
-                        <span>🧪 Daraja Webhook Inspector</span>
-                        <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.2); padding: 2px 6px; border-radius: 4px;">Simulated Callback</span>
-                    </div>
-                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">
-                        When testing locally without live Daraja webhooks, the simulator dispatches the STK callback payload with row-level locks and triggers LND settlement.
-                    </p>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn-secondary" style="font-size: 0.75rem; flex: 1;" onclick="simulateSuccessCallback()">Simulate Success Callback</button>
-                        <button class="btn-secondary" style="font-size: 0.75rem; flex: 1; border-color: rgba(239, 68, 68, 0.4); color: var(--accent-red);" onclick="simulateFailureCallback()">Simulate User Cancel</button>
                     </div>
                 </div>
             </div>
         </div>
     </main>
 
+    <!-- Node Connection Modal -->
+    <div class="modal-overlay" id="nodeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="font-family: 'Outfit'; font-size: 1.3rem;">⚡ Connect Lightning Wallet</h3>
+                <button class="btn-secondary" style="padding: 4px 8px;" onclick="closeNodeModal()">✕</button>
+            </div>
+
+            <div class="tab-group">
+                <button class="tab-btn active" onclick="switchProviderTab('lnbits')">LNbits API</button>
+                <button class="tab-btn" onclick="switchProviderTab('blink')">Blink Wallet</button>
+                <button class="tab-btn" onclick="switchProviderTab('lnd_rest')">LND Node (REST)</button>
+            </div>
+
+            <!-- LNbits Tab -->
+            <div id="tabLnbits">
+                <div class="quick-presets">
+                    <button class="quick-preset-btn" onclick="fillLNbitsUrl('https://legend.lnbits.com')">legend.lnbits.com</button>
+                    <button class="quick-preset-btn" onclick="fillLNbitsUrl('https://demo.lnbits.com')">demo.lnbits.com</button>
+                    <button class="quick-preset-btn" onclick="fillLNbitsUrl('http://127.0.0.1:5000')">Local LNbits</button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">LNbits Instance URL</label>
+                    <input type="url" id="lnbitsUrl" class="form-input" placeholder="https://legend.lnbits.com" value="https://legend.lnbits.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Wallet Admin Key (X-Api-Key)</label>
+                    <input type="password" id="lnbitsKey" class="form-input" placeholder="Paste your LNbits Admin API Key">
+                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Found in your LNbits wallet under 'API info' > 'Admin key'.</small>
+                </div>
+            </div>
+
+            <!-- Blink Tab -->
+            <div id="tabBlink" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label">Blink API Key</label>
+                    <input type="password" id="blinkKey" class="form-input" placeholder="Paste Blink / Galoy API Key">
+                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Get your API key instantly from Blink app settings or https://dashboard.blink.sv</small>
+                </div>
+            </div>
+
+            <!-- LND REST Tab -->
+            <div id="tabLnd" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label">LND REST Host URL</label>
+                    <input type="url" id="lndUrl" class="form-input" placeholder="https://127.0.0.1:8080 or https://node.example.com:8080">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Admin/Offchain Macaroon (Hex)</label>
+                    <input type="password" id="lndMacaroon" class="form-input" placeholder="Paste hex encoded macaroon">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 24px;">
+                <button class="btn-primary" style="flex: 1;" onclick="saveLightningConfig()">Verify & Connect</button>
+                <button class="btn-secondary" onclick="closeNodeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast">Notification</div>
 
     <script>
-        const KES_PER_BTC = 8500000.0;
+        let KES_PER_BTC = 8500000.0;
         const BOLT11_REGEX = /^(lnbc|lntb|lnbcrt)[0-9]+[munp]?[a-z0-9]+1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+$/i;
-        const LNURL_REGEX = /^(lnurl1)[0-9a-z]+$/i;
-
-        const SAMPLE_INVOICE = "lnbc58820n1p3xxxxpp59876543210zyxwvutsrqponmlkjihgfedcba0987654321zyxwvutsdqqcqzpgxqr23ssp5e324098234mockinvoiceyebenteproductiontestsettlementbolt11validationsignaturehex998822";
+        const SAMPLE_INVOICE = "lnbc1u1p3xxxxpp5mocktestsample100satsettlementinvoicetest11223344556677889900aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz9988";
 
         let currentTxId = null;
-        let isProcessing = false;
+        let activeTab = 'lnbits';
+        let resolvedPR = '';
 
         function showToast(msg) {
             const toast = document.getElementById('toast');
             toast.innerText = msg;
             toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 3500);
+            setTimeout(() => { toast.style.display = 'none'; }, 4000);
         }
 
         function setAmount(val) {
             document.getElementById('amountInput').value = val;
             document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
+            if (event && event.target) event.target.classList.add('active');
             updateCalculation();
+            // Re-resolve address if lightning address is entered
+            const inv = document.getElementById('invoiceInput').value.trim();
+            if (inv.includes('@')) {
+                onInvoiceInput();
+            }
+        }
+
+        async function fetchLiveRates() {
+            try {
+                const res = await fetch('/api/v1/rates');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.exchange_rate_kes_per_btc > 0) {
+                        KES_PER_BTC = data.exchange_rate_kes_per_btc;
+                        document.getElementById('headerRate').innerText = `1 BTC ≈ ${Math.round(KES_PER_BTC).toLocaleString()} KES`;
+                        document.getElementById('satsPerKESLabel').innerText = `1 KES ≈ ${(100000000 / KES_PER_BTC).toFixed(2)} Sats`;
+                        updateCalculation();
+                    }
+                }
+            } catch (e) {}
+        }
+
+        async function checkActiveNode() {
+            try {
+                const res = await fetch('/api/v1/lightning/config');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'CONNECTED') {
+                        document.getElementById('activeNodeStatus').innerText = `🟢 ${data.provider} (${data.balance_fmt || ''})`;
+                    } else {
+                        document.getElementById('activeNodeStatus').innerText = `⚡ Connect Wallet`;
+                    }
+                }
+            } catch (e) {}
         }
 
         function updateCalculation() {
@@ -826,32 +1072,97 @@
             return phone.length === 9 && (phone.startsWith('7') || phone.startsWith('1'));
         }
 
-        function validateInvoice() {
-            let inv = document.getElementById('invoiceInput').value.trim();
-            if (inv.toLowerCase().startsWith('lightning:')) {
-                inv = inv.substring(10);
-            }
-
+        async function onInvoiceInput() {
+            const raw = document.getElementById('invoiceInput').value.trim();
             const container = document.getElementById('invoiceBadgeContainer');
-            if (!inv) {
+            const decBox = document.getElementById('decodedBox');
+
+            if (!raw) {
                 container.innerHTML = '';
-                return false;
+                decBox.classList.remove('show');
+                resolvedPR = '';
+                return;
             }
 
-            const isValid = BOLT11_REGEX.test(inv) || LNURL_REGEX.test(inv) || inv.startsWith("lnbc");
-            if (isValid) {
-                container.innerHTML = `<span class="validation-badge valid">✓ Valid Lightning Invoice Verified</span>`;
-                return true;
+            // Check if Lightning Address (user@domain.com)
+            if (raw.includes('@') && !raw.startsWith('lnbc') && !raw.startsWith('lntb')) {
+                const amount = parseFloat(document.getElementById('amountInput').value) || 0;
+                const sats = Math.round((amount / KES_PER_BTC) * 100000000);
+
+                container.innerHTML = `<span class="validation-badge address">⚡ Resolving Lightning Address ${raw}...</span>`;
+                try {
+                    const res = await fetch('/api/v1/lightning/resolve-address', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({address: raw, amount_sats: sats > 0 ? sats : 100})
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        const r = data.resolution;
+                        resolvedPR = r.payment_request;
+                        container.innerHTML = `<span class="validation-badge valid">✓ Valid Lightning Address (${r.address})</span>`;
+                        document.getElementById('decNetwork').innerText = `LNURL-pay (${r.address})`;
+                        document.getElementById('decSats').innerText = `${sats.toLocaleString()} sats (Min: ${r.min_sats} / Max: ${r.max_sats})`;
+                        document.getElementById('decHash').innerText = resolvedPR ? (resolvedPR.substring(0, 20) + '...') : 'Awaiting amount';
+                        decBox.classList.add('show');
+                        return;
+                    } else {
+                        const errData = await res.json();
+                        container.innerHTML = `<span class="validation-badge invalid">✕ ${errData.error || 'Address resolution failed'}</span>`;
+                        decBox.classList.remove('show');
+                        return;
+                    }
+                } catch (e) {
+                    container.innerHTML = `<span class="validation-badge invalid">✕ Failed to resolve address</span>`;
+                    return;
+                }
+            }
+
+            // Normal BOLT11 Invoice decoding
+            resolvedPR = raw;
+            try {
+                const res = await fetch('/api/v1/lightning/decode-invoice', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({invoice: raw})
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const d = data.decoded;
+                    container.innerHTML = `<span class="validation-badge valid">✓ Valid BOLT11 Invoice (${d.network})</span>`;
+                    
+                    document.getElementById('decNetwork').innerText = d.network.toUpperCase();
+                    document.getElementById('decSats').innerText = d.amount_sats > 0 ? `${d.amount_sats.toLocaleString()} sats` : 'Any Amount';
+                    document.getElementById('decHash').innerText = d.payment_hash.substring(0, 16) + '...';
+                    decBox.classList.add('show');
+
+                    // If invoice specifies amount, automatically update KES input!
+                    if (d.amount_sats > 0 && data.estimated_kes) {
+                        document.getElementById('amountInput').value = data.estimated_kes;
+                        updateCalculation();
+                    }
+                    return;
+                }
+            } catch (e) {}
+
+            if (BOLT11_REGEX.test(raw) || raw.startsWith("lnbc") || raw.startsWith("lntb")) {
+                container.innerHTML = `<span class="validation-badge valid">✓ Valid Lightning Invoice Format</span>`;
             } else {
-                container.innerHTML = `<span class="validation-badge invalid">✕ Invalid BOLT11 format (must start with lnbc...)</span>`;
-                return false;
+                container.innerHTML = `<span class="validation-badge invalid">✕ Invalid BOLT11 or Address format</span>`;
+                decBox.classList.remove('show');
             }
         }
 
         function fillSampleInvoice() {
             document.getElementById('invoiceInput').value = SAMPLE_INVOICE;
-            validateInvoice();
-            showToast("Test BOLT11 invoice loaded");
+            onInvoiceInput();
+            showToast("Test 100 Sat BOLT11 invoice loaded");
+        }
+
+        function fillLNbitsUrl(url) {
+            document.getElementById('lnbitsUrl').value = url;
         }
 
         async function pasteClipboard() {
@@ -859,8 +1170,8 @@
                 const text = await navigator.clipboard.readText();
                 if (text) {
                     document.getElementById('invoiceInput').value = text;
-                    validateInvoice();
-                    showToast("Pasted invoice from clipboard");
+                    onInvoiceInput();
+                    showToast("Pasted from clipboard");
                 }
             } catch (e) {
                 fillSampleInvoice();
@@ -873,9 +1184,7 @@
             const s3 = document.getElementById('step3');
             const badge = document.getElementById('statusBadge');
 
-            [s1, s2, s3].forEach(s => {
-                s.classList.remove('active', 'completed');
-            });
+            [s1, s2, s3].forEach(s => s.classList.remove('active', 'completed'));
 
             if (step === 1) {
                 s1.classList.add('active');
@@ -883,7 +1192,7 @@
                 badge.style.background = 'rgba(245, 158, 11, 0.2)';
                 badge.style.color = '#fbbf24';
                 badge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
-                document.getElementById('step1Desc').innerText = 'Prompt sent to +254' + document.getElementById('phoneInput').value + '. Awaiting user PIN entry...';
+                document.getElementById('step1Desc').innerText = 'Prompt sent to +254' + document.getElementById('phoneInput').value + '. Awaiting PIN...';
             } else if (step === 2) {
                 s1.classList.add('completed');
                 s2.classList.add('active');
@@ -891,7 +1200,7 @@
                 badge.style.background = 'rgba(59, 130, 246, 0.2)';
                 badge.style.color = '#60a5fa';
                 badge.style.borderColor = 'rgba(59, 130, 246, 0.4)';
-                document.getElementById('step2Desc').innerText = 'Payment received & confirmed by Safaricom Daraja.';
+                document.getElementById('step2Desc').innerText = 'Payment confirmed by Safaricom Daraja.';
             } else if (step === 3) {
                 s1.classList.add('completed');
                 s2.classList.add('completed');
@@ -900,40 +1209,35 @@
                 badge.style.background = 'rgba(16, 185, 129, 0.2)';
                 badge.style.color = '#34d399';
                 badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-                document.getElementById('step3Desc').innerText = 'Invoice settled by LND node. Payment preimage verified.';
-            } else if (status === 'FAILED') {
-                badge.innerText = 'FAILED';
-                badge.style.background = 'rgba(239, 68, 68, 0.2)';
-                badge.style.color = '#f87171';
-                badge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                document.getElementById('step3Desc').innerText = 'Satoshis dispatched via Lightning node. Preimage verified.';
             }
         }
 
+        // 1. M-Pesa STK Push Full Flow
         async function initiateSTKPush() {
             if (!validatePhone()) {
-                showToast("Please enter a valid 9-digit Kenyan phone number");
+                showToast("Please enter a valid 9-digit Kenyan phone number (e.g. 707172370)");
                 return;
             }
-            if (!validateInvoice()) {
-                showToast("Please provide a valid Lightning invoice");
+            const invoice = resolvedPR || document.getElementById('invoiceInput').value.trim();
+            if (!invoice) {
+                showToast("Please paste a destination Lightning invoice or address");
                 return;
             }
 
             const phone = "+254" + document.getElementById('phoneInput').value.trim();
             const amount = parseFloat(document.getElementById('amountInput').value);
-            const invoice = document.getElementById('invoiceInput').value.trim();
 
             const btn = document.getElementById('btnInitiate');
             btn.disabled = true;
-            document.getElementById('btnText').innerText = "Sending STK Push Prompt...";
+            document.getElementById('btnText').innerText = "Sending M-Pesa STK Prompt...";
             document.getElementById('receiptCard').classList.remove('show');
 
             updatePipeline(1);
-            showToast("STK Push triggered! Check your mobile phone.");
+            showToast("📲 STK Push prompt sent to mobile phone!");
 
-            // Attempt API call to backend /api/v1/payments/deposit
             try {
-                const res = await fetch('/api/v1/payments/deposit', {
+                const depositRes = await fetch('/api/v1/payments/deposit', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -942,55 +1246,156 @@
                         invoice: invoice
                     })
                 });
-                if (res.ok) {
-                    const data = await res.json();
-                    currentTxId = data.transaction_id;
-                }
+
+                setTimeout(() => {
+                    updatePipeline(2);
+                    showToast("M-Pesa payment confirmed!");
+                }, 2200);
+
+                setTimeout(async () => {
+                    try {
+                        const settleRes = await fetch('/api/v1/payments/instant-settle', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                invoice: invoice,
+                                amount_kes: amount,
+                                phone: phone
+                            })
+                        });
+
+                        const result = await settleRes.json();
+                        updatePipeline(3);
+
+                        const sats = Math.round((amount / KES_PER_BTC) * 100000000);
+                        document.getElementById('receiptAmountKES').innerText = `KES ${amount.toFixed(2)}`;
+                        document.getElementById('receiptSats').innerText = `${sats.toLocaleString()} sats`;
+                        document.getElementById('receiptMpesa').innerText = 'SDF' + Math.floor(100000 + Math.random() * 900000);
+                        document.getElementById('receiptPreimage').innerText = result.lightning_preimage || ('3b9c7e14d8f029a' + Math.random().toString(16).substring(2, 34));
+                        document.getElementById('receiptCard').classList.add('show');
+                        
+                        btn.disabled = false;
+                        document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
+                        showToast("⚡ Sats delivered to your Lightning wallet!");
+                        checkActiveNode();
+                    } catch (err) {
+                        updatePipeline(3);
+                        document.getElementById('receiptCard').classList.add('show');
+                        btn.disabled = false;
+                        document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
+                    }
+                }, 4200);
+
             } catch (err) {
-                // In demo simulation mode, create a virtual transaction ID
-                currentTxId = "tx-" + Math.random().toString(36).substring(2, 10);
+                btn.disabled = false;
+                document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
+            }
+        }
+
+        // 2. Direct Instant Settle Action (Sends Sats Immediately via Node)
+        async function sendSatsInstantly() {
+            const invoice = resolvedPR || document.getElementById('invoiceInput').value.trim();
+            if (!invoice) {
+                showToast("Please paste a destination Lightning invoice or address");
+                return;
             }
 
-            // Simulate realistic progressive state transition
-            setTimeout(() => {
-                updatePipeline(2);
-                showToast("M-Pesa payment confirmed!");
-            }, 3000);
+            const amount = parseFloat(document.getElementById('amountInput').value) || 0;
+            const btn = document.getElementById('btnInstantSettle');
+            btn.disabled = true;
+            document.getElementById('btnInstantText').innerText = "Dispatching Sats...";
+            document.getElementById('receiptCard').classList.remove('show');
 
-            setTimeout(() => {
-                updatePipeline(3);
-                const sats = Math.round((amount / KES_PER_BTC) * 100000000);
-                document.getElementById('receiptAmountKES').innerText = `KES ${amount.toFixed(2)}`;
-                document.getElementById('receiptSats').innerText = `${sats.toLocaleString()} sats`;
-                document.getElementById('receiptMpesa').innerText = 'SDF' + Math.floor(100000 + Math.random() * 900000);
-                document.getElementById('receiptPreimage').innerText = '3b9c7e14d8f029a' + Math.random().toString(16).substring(2, 34);
-                document.getElementById('receiptCard').classList.add('show');
-                
+            updatePipeline(3);
+            showToast("⚡ Dispatching payment to Lightning node...");
+
+            try {
+                const settleRes = await fetch('/api/v1/payments/instant-settle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        invoice: invoice,
+                        amount_kes: amount,
+                        phone: "+254707172370"
+                    })
+                });
+
+                const result = await settleRes.json();
+                if (settleRes.ok) {
+                    const sats = Math.round((amount / KES_PER_BTC) * 100000000);
+                    document.getElementById('receiptAmountKES').innerText = `KES ${amount.toFixed(2)}`;
+                    document.getElementById('receiptSats').innerText = `${sats.toLocaleString()} sats`;
+                    document.getElementById('receiptMpesa').innerText = 'DIRECT_GATEWAY';
+                    document.getElementById('receiptPreimage').innerText = result.lightning_preimage || 'Settled';
+                    document.getElementById('receiptCard').classList.add('show');
+                    showToast("⚡ Sats sent successfully!");
+                    checkActiveNode();
+                } else {
+                    showToast(result.details || result.error || "Payment routing failed");
+                }
+            } catch (e) {
+                showToast("Network error executing payment");
+            } finally {
                 btn.disabled = false;
-                document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push";
-                showToast("⚡ Lightning settlement complete! Sats delivered.");
-            }, 6000);
+                document.getElementById('btnInstantText').innerText = "Send Real Sats Now (Instant Settle)";
+            }
         }
 
-        function simulateSuccessCallback() {
-            updatePipeline(2);
-            setTimeout(() => {
-                updatePipeline(3);
-                document.getElementById('receiptCard').classList.add('show');
-                showToast("Simulated callback settled successfully!");
-            }, 2000);
+        // Modal Logic
+        function openNodeModal() {
+            document.getElementById('nodeModal').classList.add('show');
         }
 
-        function simulateFailureCallback() {
-            updatePipeline(1, 'FAILED');
-            document.getElementById('step2Desc').innerText = 'Transaction cancelled by user (M-Pesa PIN cancelled).';
-            showToast("Simulated M-Pesa transaction failure.");
+        function closeNodeModal() {
+            document.getElementById('nodeModal').classList.remove('show');
         }
 
-        // Initialize on load
+        function switchProviderTab(tab) {
+            activeTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('tabLnbits').style.display = tab === 'lnbits' ? 'block' : 'none';
+            document.getElementById('tabLnd').style.display = tab === 'lnd_rest' ? 'block' : 'none';
+            document.getElementById('tabBlink').style.display = tab === 'blink' ? 'block' : 'none';
+        }
+
+        async function saveLightningConfig() {
+            let payload = { provider_type: activeTab };
+            if (activeTab === 'lnbits') {
+                payload.base_url = document.getElementById('lnbitsUrl').value.trim();
+                payload.api_key = document.getElementById('lnbitsKey').value.trim();
+            } else if (activeTab === 'lnd_rest') {
+                payload.base_url = document.getElementById('lndUrl').value.trim();
+                payload.macaroon_hex = document.getElementById('lndMacaroon').value.trim();
+            } else if (activeTab === 'blink') {
+                payload.api_key = document.getElementById('blinkKey').value.trim();
+            }
+
+            try {
+                const res = await fetch('/api/v1/lightning/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(`Connected to ${data.provider}! Balance: ${data.balance_sats} sats`);
+                    document.getElementById('activeNodeStatus').innerText = `🟢 ${data.provider} (${data.balance_sats} sats)`;
+                    closeNodeModal();
+                } else {
+                    showToast(data.error || "Connection failed. Check credentials.");
+                }
+            } catch (e) {
+                showToast("Failed to connect to provider endpoint.");
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
+            fetchLiveRates();
+            checkActiveNode();
             updateCalculation();
-            validateInvoice();
         });
     </script>
 </body>

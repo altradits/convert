@@ -65,6 +65,10 @@ func NewLNDService(grpcAddress string, tlsCertBytes []byte, macaroonHex string) 
 }
 
 func (l *LNDService) PayInvoice(ctx context.Context, invoice string, maxFeeSats int64) (string, string, error) {
+	if l == nil || l.client == nil {
+		return "", "", errors.New("LND gRPC service is not connected")
+	}
+
 	req := &lnrpc.SendRequest{
 		PaymentRequest: invoice,
 		FeeLimit: &lnrpc.FeeLimit{
@@ -89,8 +93,8 @@ func (l *LNDService) PayInvoice(ctx context.Context, invoice string, maxFeeSats 
 }
 
 func (l *LNDService) Close() error {
-	if l.conn != nil {
-		return l.conn.Close()
+	if l == nil || l.conn == nil {
+		return nil
 	}
-	return nil
+	return l.conn.Close()
 }
