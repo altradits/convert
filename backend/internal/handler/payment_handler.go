@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -189,16 +190,31 @@ func (h *PaymentHandler) ConfigureLightning(c *gin.Context) {
 		return
 	}
 
+	if req.ProviderType == "disconnect" || req.ProviderType == "simulation" {
+		if h.lightningEngine != nil {
+			h.lightningEngine.SetProvider(nil)
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Switched to Built-in Live Simulation Engine",
+			"status":  "DEMO_SIMULATION",
+		})
+		return
+	}
+
 	var provider service.LightningProvider
 	switch req.ProviderType {
 	case "lnbits":
-		provider = service.NewLNbitsProvider(req.BaseURL, req.APIKey)
+		baseURL := strings.TrimSpace(req.BaseURL)
+		if baseURL == "" {
+			baseURL = "https://legend.lnbits.com"
+		}
+		provider = service.NewLNbitsProvider(baseURL, req.APIKey)
 	case "lnd_rest":
 		provider = service.NewLNDRESTProvider(req.BaseURL, req.MacaroonHex)
 	case "blink":
 		provider = service.NewBlinkProvider(req.APIKey)
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported provider type. Choose: lnbits, lnd_rest, blink"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported provider type. Choose: lnbits, lnd_rest, blink, or disconnect"})
 		return
 	}
 
@@ -207,7 +223,7 @@ func (h *PaymentHandler) ConfigureLightning(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   fmt.Sprintf("Failed to connect to %s: %v", provider.Name(), err),
-			"details": "Check your endpoint URL and API credentials.",
+			"details": "Check your endpoint URL, network connectivity, and API credentials.",
 		})
 		return
 	}
@@ -258,16 +274,41 @@ func (h *PaymentHandler) GetLightningConfig(c *gin.Context) {
 // InstantSettle handles POST /api/v1/payments/instant-settle
 func (h *PaymentHandler) InstantSettle(c *gin.Context) {
 	var req struct {
-		Invoice   string  `json:"invoice" binding:"required"`
-		AmountKES float64 `json:"amount_kes"`
-		Phone     string  `json:"phone"`
+		Invoice    string  `json:"invoice" binding:"required"`
+		AmountKES  float64 `json:"amount_kes"`
+		AmountSats int64   `json:"amount_sats"`
+		Phone      string  `json:"phone"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invoice is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invoice or destination is required"})
 		return
 	}
 
+	var amountSats int64 = req.AmountSats
+	if amountSats <= 0 && req.AmountKES > 0 {
+		amountSats = h.settlementService.ConvertKESToSats(req.AmountKES)
+	}
+
+	if decoded, err := service.DecodeBOLT11(req.Invoice); err == nil && decoded.AmountSats > 0 {
+		amountSats = decoded.AmountSats
+	}
+
+	if amountSats <= 0 {
+		amountSats = 100
+	}
+
 	txID := uuid.New()
+	tx := &domain.Transaction{
+		ID:               txID,
+		AmountKES:        req.AmountKES,
+		AmountSats:       amountSats,
+		LightningInvoice: req.Invoice,
+		Status:           domain.StatusPendingSTK,
+	}
+	if h.paymentRepo != nil {
+		_ = h.paymentRepo.CreateTransaction(c.Request.Context(), tx)
+	}
+
 	hash, preimage, err := h.settlementService.ExecuteLightningSettlement(c.Request.Context(), txID, req.Invoice)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -278,10 +319,12 @@ func (h *PaymentHandler) InstantSettle(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":               "SETTLED",
-		"transaction_id":       txID,
+		"status":                 "SETTLED",
+		"transaction_id":         txID,
+		"amount_sats":            amountSats,
+		"amount_kes":             req.AmountKES,
 		"lightning_payment_hash": hash,
-		"lightning_preimage":   preimage,
-		"message":              "Satoshis successfully sent over Lightning Network!",
+		"lightning_preimage":     preimage,
+		"message":                "Satoshis successfully sent over Lightning Network!",
 	})
 }

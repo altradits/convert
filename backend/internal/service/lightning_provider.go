@@ -122,8 +122,16 @@ func (p *LNbitsProvider) PayInvoice(ctx context.Context, invoice string, maxFeeS
 		PaymentHash string `json:"payment_hash"`
 		CheckingID  string `json:"checking_id"`
 		Preimage    string `json:"preimage"`
+		Detail      string `json:"detail"`
+		Message     string `json:"message"`
 	}
 	_ = json.Unmarshal(body, &resp)
+	if resp.Detail != "" && resp.PaymentHash == "" && resp.CheckingID == "" {
+		return "", "", fmt.Errorf("LNbits error: %s", resp.Detail)
+	}
+	if resp.Message != "" && resp.PaymentHash == "" && resp.CheckingID == "" {
+		return "", "", fmt.Errorf("LNbits error: %s", resp.Message)
+	}
 
 	paymentHash := resp.PaymentHash
 	if paymentHash == "" {
@@ -273,9 +281,10 @@ func (p *LNDRESTProvider) PayInvoice(ctx context.Context, invoice string, maxFee
 // 3. Blink / Galoy GraphQL Provider
 // ==========================================
 type BlinkProvider struct {
-	APIKey  string
-	BaseURL string
-	client  *http.Client
+	APIKey   string
+	BaseURL  string
+	WalletID string
+	client   *http.Client
 }
 
 func NewBlinkProvider(apiKey string) *BlinkProvider {
@@ -292,6 +301,61 @@ func (p *BlinkProvider) Name() string {
 
 func (p *BlinkProvider) IsConfigured() bool {
 	return p.APIKey != ""
+}
+
+func (p *BlinkProvider) getBTCWalletID(ctx context.Context) (string, error) {
+	if p.WalletID != "" {
+		return p.WalletID, nil
+	}
+
+	query := `query { me { defaultAccount { defaultWalletId wallets { id walletCurrency balance } } } }`
+	reqBody, _ := json.Marshal(map[string]string{"query": query})
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.BaseURL, bytes.NewReader(reqBody))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("X-API-KEY", p.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := p.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+
+	var resp struct {
+		Data struct {
+			Me struct {
+				DefaultAccount struct {
+					DefaultWalletID string `json:"defaultWalletId"`
+					Wallets []struct {
+						ID             string `json:"id"`
+						WalletCurrency string `json:"walletCurrency"`
+						Balance        int64  `json:"balance"`
+					} `json:"wallets"`
+				} `json:"defaultAccount"`
+			} `json:"me"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		return "", err
+	}
+
+	for _, w := range resp.Data.Me.DefaultAccount.Wallets {
+		if w.WalletCurrency == "BTC" {
+			p.WalletID = w.ID
+			return w.ID, nil
+		}
+	}
+
+	if resp.Data.Me.DefaultAccount.DefaultWalletID != "" {
+		p.WalletID = resp.Data.Me.DefaultAccount.DefaultWalletID
+		return p.WalletID, nil
+	}
+
+	return "", errors.New("no BTC wallet found in Blink account")
 }
 
 func (p *BlinkProvider) GetBalance(ctx context.Context) (int64, error) {
@@ -320,6 +384,7 @@ func (p *BlinkProvider) GetBalance(ctx context.Context) (int64, error) {
 			Me struct {
 				DefaultAccount struct {
 					Wallets []struct {
+						ID             string `json:"id"`
 						WalletCurrency string `json:"walletCurrency"`
 						Balance        int64  `json:"balance"`
 					} `json:"wallets"`
@@ -334,6 +399,7 @@ func (p *BlinkProvider) GetBalance(ctx context.Context) (int64, error) {
 
 	for _, w := range resp.Data.Me.DefaultAccount.Wallets {
 		if w.WalletCurrency == "BTC" {
+			p.WalletID = w.ID
 			return w.Balance, nil
 		}
 	}
@@ -346,6 +412,11 @@ func (p *BlinkProvider) PayInvoice(ctx context.Context, invoice string, maxFeeSa
 		return "", "", errors.New("Blink API key not configured")
 	}
 
+	walletID, err := p.getBTCWalletID(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to retrieve Blink wallet ID: %w", err)
+	}
+
 	query := `mutation LnInvoicePaymentSend($input: LnInvoicePaymentInput!) {
 		lnInvoicePaymentSend(input: $input) {
 			status
@@ -355,6 +426,7 @@ func (p *BlinkProvider) PayInvoice(ctx context.Context, invoice string, maxFeeSa
 
 	variables := map[string]interface{}{
 		"input": map[string]interface{}{
+			"walletId":       walletID,
 			"paymentRequest": invoice,
 		},
 	}
@@ -388,14 +460,25 @@ func (p *BlinkProvider) PayInvoice(ctx context.Context, invoice string, maxFeeSa
 				} `json:"errors"`
 			} `json:"lnInvoicePaymentSend"`
 		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
 	}
 
 	_ = json.Unmarshal(body, &resp)
+	if len(resp.Errors) > 0 {
+		return "", "", errors.New(resp.Errors[0].Message)
+	}
 	if len(resp.Data.LnInvoicePaymentSend.Errors) > 0 {
 		return "", "", errors.New(resp.Data.LnInvoicePaymentSend.Errors[0].Message)
 	}
 
 	status := resp.Data.LnInvoicePaymentSend.Status
+	if status == "" && len(resp.Data.LnInvoicePaymentSend.Errors) == 0 && len(resp.Errors) == 0 {
+		if res.StatusCode != http.StatusOK {
+			return "", "", fmt.Errorf("Blink API error (status %d): %s", res.StatusCode, string(body))
+		}
+	}
 	if status != "SUCCESS" && status != "PENDING" && status != "ALREADY_PAID" {
 		return "", "", fmt.Errorf("Blink payment status: %s", status)
 	}

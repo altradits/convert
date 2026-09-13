@@ -181,3 +181,37 @@ func TestInitiateDepositAndSettlementFlow(t *testing.T) {
 		t.Fatalf("expected preimage to be populated")
 	}
 }
+
+func TestMultiLightningEngine(t *testing.T) {
+	ctx := context.Background()
+	engine := NewMultiLightningEngine(&mockLightningService{})
+
+	// Test default fallback
+	hash, preimage, err := engine.PayInvoice(ctx, "lnbc100u1pj_test", 100)
+	if err != nil {
+		t.Fatalf("expected payment to succeed: %v", err)
+	}
+	if hash != "mock_payment_hash_1234" || preimage != "mock_preimage_abcd" {
+		t.Fatalf("unexpected hash/preimage: %s / %s", hash, preimage)
+	}
+
+	// Test LNbits provider setup
+	lnbits := NewLNbitsProvider("https://legend.lnbits.com", "fake_admin_key")
+	if !lnbits.IsConfigured() {
+		t.Fatalf("expected lnbits to be configured")
+	}
+	engine.SetProvider(lnbits)
+	if engine.GetActiveProvider().Name() != "LNbits API" {
+		t.Fatalf("expected LNbits API active provider")
+	}
+
+	// Test Blink provider setup
+	blink := NewBlinkProvider("fake_blink_api_key")
+	if !blink.IsConfigured() {
+		t.Fatalf("expected blink to be configured")
+	}
+	engine.SetProvider(blink)
+	if engine.GetActiveProvider().Name() != "Blink (Galoy) Lightning" {
+		t.Fatalf("expected Blink active provider")
+	}
+}

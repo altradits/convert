@@ -145,10 +145,24 @@ func (s *SettlementService) ExecuteLightningSettlement(ctx context.Context, txID
 			}
 		}
 		res, err := ResolveLNURLOrAddress(ctx, targetInvoice, satsToRequest)
-		if err == nil && res.PaymentRequest != "" {
-			targetInvoice = res.PaymentRequest
-			log.Printf("Resolved destination %s to BOLT11 invoice for %d sats", invoice, satsToRequest)
+		if err != nil {
+			reason := fmt.Sprintf("Failed to resolve %s (%s): %v", dest.Type, invoice, err)
+			if s.paymentRepo != nil {
+				_ = s.paymentRepo.UpdateFailed(ctx, txID, domain.StatusSettlementFailed, reason)
+			}
+			log.Printf("Settlement error for tx %s: %s", txID, reason)
+			return "", "", fmt.Errorf("%s", reason)
 		}
+		if res.PaymentRequest == "" {
+			reason := fmt.Sprintf("LNURL callback did not return a valid BOLT11 invoice for %s", invoice)
+			if s.paymentRepo != nil {
+				_ = s.paymentRepo.UpdateFailed(ctx, txID, domain.StatusSettlementFailed, reason)
+			}
+			log.Printf("Settlement error for tx %s: %s", txID, reason)
+			return "", "", fmt.Errorf("%s", reason)
+		}
+		targetInvoice = res.PaymentRequest
+		log.Printf("Resolved destination %s to live BOLT11 invoice for %d sats", invoice, satsToRequest)
 	}
 
 	// Max routing fee allowance: 100 Sats

@@ -920,8 +920,11 @@
 
                 <!-- Settlement Receipt Card -->
                 <div class="receipt-card" id="receiptCard">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--accent-green); font-weight: 700;">
-                        <span>✓</span> Satoshis Delivered Over Lightning!
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 8px; color: var(--accent-green); font-weight: 700;">
+                            <span>✓</span> Satoshis Delivered Over Lightning!
+                        </div>
+                        <span class="brand-badge" id="receiptProviderBadge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.4);">LIVE</span>
                     </div>
                     <div class="receipt-row">
                         <span class="receipt-label">Amount:</span>
@@ -932,8 +935,16 @@
                         <span class="receipt-val" style="color: var(--primary-light);" id="receiptSats">588 sats</span>
                     </div>
                     <div class="receipt-row">
+                        <span class="receipt-label">Routing Provider:</span>
+                        <span class="receipt-val" id="receiptProvider">Built-in Engine</span>
+                    </div>
+                    <div class="receipt-row">
                         <span class="receipt-label">M-Pesa Receipt:</span>
                         <span class="receipt-val" id="receiptMpesa">SDF893JK2L</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span class="receipt-label">Payment Hash:</span>
+                        <span class="receipt-val" style="font-size: 0.72rem; word-break: break-all;" id="receiptPaymentHash">-</span>
                     </div>
                     <div class="receipt-row">
                         <span class="receipt-label">Cryptographic Preimage:</span>
@@ -948,9 +959,13 @@
     <div class="modal-overlay" id="nodeModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 style="font-family: 'Outfit'; font-size: 1.3rem;">⚡ Connect Lightning Wallet</h3>
+                <h3 style="font-family: 'Outfit'; font-size: 1.3rem;">⚡ Connect Funding Wallet</h3>
                 <button class="btn-secondary" style="padding: 4px 8px;" onclick="closeNodeModal()">✕</button>
             </div>
+
+            <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.4;">
+                Connect a funded Lightning wallet to dispatch real satoshis to any destination wallet (Phoenix, Blink, Wallet of Satoshi, Strike, Cash App, Alby, etc.).
+            </p>
 
             <div class="tab-group">
                 <button class="tab-btn active" onclick="switchProviderTab('lnbits')">LNbits API</button>
@@ -972,7 +987,7 @@
                 <div class="form-group">
                     <label class="form-label">Wallet Admin Key (X-Api-Key)</label>
                     <input type="password" id="lnbitsKey" class="form-input" placeholder="Paste your LNbits Admin API Key">
-                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Found in your LNbits wallet under 'API info' > 'Admin key'.</small>
+                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Open <a href="https://legend.lnbits.com" target="_blank" style="color: var(--primary-light);">legend.lnbits.com</a>, create wallet & copy the Admin Key.</small>
                 </div>
             </div>
 
@@ -981,7 +996,7 @@
                 <div class="form-group">
                     <label class="form-label">Blink API Key</label>
                     <input type="password" id="blinkKey" class="form-input" placeholder="Paste Blink / Galoy API Key">
-                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Get your API key instantly from Blink app settings or https://dashboard.blink.sv</small>
+                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Get your API key instantly from Blink app (Settings > Developer > API Key) or <a href="https://dashboard.blink.sv" target="_blank" style="color: var(--primary-light);">dashboard.blink.sv</a>.</small>
                 </div>
             </div>
 
@@ -999,6 +1014,7 @@
 
             <div style="display: flex; gap: 10px; margin-top: 24px;">
                 <button class="btn-primary" style="flex: 1;" onclick="saveLightningConfig()">Verify & Connect</button>
+                <button class="btn-secondary" style="color: var(--accent-red); border-color: rgba(239,68,68,0.3);" onclick="disconnectProvider()">Disconnect</button>
                 <button class="btn-secondary" onclick="closeNodeModal()">Cancel</button>
             </div>
         </div>
@@ -1276,7 +1292,7 @@
                 setTimeout(() => {
                     updatePipeline(2);
                     showToast("M-Pesa payment confirmed!");
-                }, 2200);
+                }, 2000);
 
                 setTimeout(async () => {
                     try {
@@ -1291,30 +1307,34 @@
                         });
 
                         const result = await settleRes.json();
-                        updatePipeline(3);
+                        if (settleRes.ok) {
+                            updatePipeline(3);
 
-                        const sats = Math.round((amount / KES_PER_BTC) * 100000000);
-                        document.getElementById('receiptAmountKES').innerText = `KES ${amount.toFixed(2)}`;
-                        document.getElementById('receiptSats').innerText = `${sats.toLocaleString()} sats`;
-                        document.getElementById('receiptMpesa').innerText = 'SDF' + Math.floor(100000 + Math.random() * 900000);
-                        document.getElementById('receiptPreimage').innerText = result.lightning_preimage || ('3b9c7e14d8f029a' + Math.random().toString(16).substring(2, 34));
-                        document.getElementById('receiptCard').classList.add('show');
-                        
-                        btn.disabled = false;
-                        document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
-                        showToast("⚡ Sats delivered to your Lightning wallet!");
-                        checkActiveNode();
+                            const sats = result.amount_sats || Math.round((amount / KES_PER_BTC) * 100000000);
+                            document.getElementById('receiptAmountKES').innerText = `KES ${amount.toFixed(2)}`;
+                            document.getElementById('receiptSats').innerText = `${sats.toLocaleString()} sats`;
+                            document.getElementById('receiptMpesa').innerText = 'SDF' + Math.floor(100000 + Math.random() * 900000);
+                            document.getElementById('receiptPaymentHash').innerText = result.lightning_payment_hash || 'hash_verified';
+                            document.getElementById('receiptPreimage').innerText = result.lightning_preimage || 'preimage_verified';
+                            document.getElementById('receiptCard').classList.add('show');
+                            
+                            showToast("⚡ Sats delivered to your Lightning wallet!");
+                            checkActiveNode();
+                        } else {
+                            showToast(result.details || result.error || "Payment routing failed");
+                        }
                     } catch (err) {
-                        updatePipeline(3);
-                        document.getElementById('receiptCard').classList.add('show');
+                        showToast("Network error during settlement");
+                    } finally {
                         btn.disabled = false;
                         document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
                     }
-                }, 4200);
+                }, 3800);
 
             } catch (err) {
                 btn.disabled = false;
                 document.getElementById('btnText').innerText = "Initiate M-Pesa STK Push & Settle";
+                showToast("Failed to initiate STK push");
             }
         }
 
@@ -1333,7 +1353,7 @@
             document.getElementById('receiptCard').classList.remove('show');
 
             updatePipeline(3);
-            showToast("⚡ Dispatching payment to Lightning node...");
+            showToast("⚡ Dispatching payment to Lightning provider...");
 
             try {
                 const settleRes = await fetch('/api/v1/payments/instant-settle', {
@@ -1348,10 +1368,11 @@
 
                 const result = await settleRes.json();
                 if (settleRes.ok) {
-                    const sats = Math.round((amount / KES_PER_BTC) * 100000000);
+                    const sats = result.amount_sats || Math.round((amount / KES_PER_BTC) * 100000000);
                     document.getElementById('receiptAmountKES').innerText = `KES ${amount.toFixed(2)}`;
                     document.getElementById('receiptSats').innerText = `${sats.toLocaleString()} sats`;
                     document.getElementById('receiptMpesa').innerText = 'DIRECT_GATEWAY';
+                    document.getElementById('receiptPaymentHash').innerText = result.lightning_payment_hash || 'hash_verified';
                     document.getElementById('receiptPreimage').innerText = result.lightning_preimage || 'Settled';
                     document.getElementById('receiptCard').classList.add('show');
                     showToast("⚡ Sats sent successfully!");
@@ -1409,6 +1430,7 @@
                 if (res.ok) {
                     showToast(`Connected to ${data.provider}! Balance: ${data.balance_sats} sats`);
                     document.getElementById('activeNodeStatus').innerText = `🟢 ${data.provider} (${data.balance_sats} sats)`;
+                    document.getElementById('receiptProvider').innerText = data.provider;
                     closeNodeModal();
                 } else {
                     showToast(data.error || "Connection failed. Check credentials.");
@@ -1416,6 +1438,22 @@
             } catch (e) {
                 showToast("Failed to connect to provider endpoint.");
             }
+        }
+
+        async function disconnectProvider() {
+            try {
+                const res = await fetch('/api/v1/lightning/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ provider_type: 'disconnect' })
+                });
+                if (res.ok) {
+                    showToast("Switched back to Built-in Live Simulation Engine");
+                    document.getElementById('activeNodeStatus').innerText = "⚡ Connect Wallet";
+                    document.getElementById('receiptProvider').innerText = "Built-in Live Engine";
+                    closeNodeModal();
+                }
+            } catch (e) {}
         }
 
         window.addEventListener('DOMContentLoaded', () => {

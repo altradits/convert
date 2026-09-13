@@ -113,7 +113,7 @@ func main() {
 
 	// 6. Initialize Handlers
 	authHandler := handler.NewAuthHandler(userRepo)
-	mpesaHandler := handler.NewMpesaHandler(paymentRepo, lightningEngine)
+	mpesaHandler := handler.NewMpesaHandler(paymentRepo, settlementService)
 	paymentHandler := handler.NewPaymentHandler(settlementService, lightningEngine, paymentRepo)
 
 	// 7. Setup Router & Routes

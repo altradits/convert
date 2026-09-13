@@ -329,22 +329,33 @@ func ResolveLNURLOrAddress(ctx context.Context, input string, amountSats int64) 
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch invoice from callback: %w", err)
 		}
-		defer cbRes.Body.Close()
+		if cbRes.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(cbRes.Body)
+			return nil, fmt.Errorf("LNURL callback returned HTTP %d: %s", cbRes.StatusCode, strings.TrimSpace(string(body)))
+		}
+
+		bodyBytes, err := io.ReadAll(cbRes.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read callback response: %w", err)
+		}
 
 		var cbData struct {
-			PR     string `json:"pr"`
-			Status string `json:"status"`
-			Reason string `json:"reason"`
+			PR     string      `json:"pr"`
+			Status interface{} `json:"status"`
+			Reason string      `json:"reason"`
 		}
-		if err := json.NewDecoder(cbRes.Body).Decode(&cbData); err != nil {
+		if err := json.Unmarshal(bodyBytes, &cbData); err != nil {
 			return nil, fmt.Errorf("failed to decode invoice callback response: %w", err)
 		}
 
-		if cbData.Status == "ERROR" {
+		if statusStr, ok := cbData.Status.(string); ok && strings.ToUpper(statusStr) == "ERROR" {
 			return nil, fmt.Errorf("callback error: %s", cbData.Reason)
 		}
 
 		if cbData.PR == "" {
+			if cbData.Reason != "" {
+				return nil, fmt.Errorf("invoice callback error: %s", cbData.Reason)
+			}
 			return nil, errors.New("provider did not return a valid payment request (PR)")
 		}
 

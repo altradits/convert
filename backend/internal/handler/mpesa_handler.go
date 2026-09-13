@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"yebente/internal/domain"
@@ -28,12 +30,12 @@ type DarajaCallbackPayload struct {
 }
 
 type MpesaHandler struct {
-	paymentRepo     postgres.PaymentRepository
-	lightningEngine service.LightningServiceInterface
+	paymentRepo       postgres.PaymentRepository
+	settlementService *service.SettlementService
 }
 
-func NewMpesaHandler(paymentRepo postgres.PaymentRepository, lnd service.LightningServiceInterface) *MpesaHandler {
-	return &MpesaHandler{paymentRepo: paymentRepo, lightningEngine: lnd}
+func NewMpesaHandler(paymentRepo postgres.PaymentRepository, settlementService *service.SettlementService) *MpesaHandler {
+	return &MpesaHandler{paymentRepo: paymentRepo, settlementService: settlementService}
 }
 
 func (h *MpesaHandler) HandleSTKCallback(c *gin.Context) {
@@ -79,25 +81,25 @@ func (h *MpesaHandler) HandleSTKCallback(c *gin.Context) {
 
 	_ = h.paymentRepo.UpdateMpesaConfirmed(ctx, tx.ID, mpesaReceipt)
 
-	// Trigger immediate asynchronous settlement
+	// Trigger immediate asynchronous settlement using independent background context
 	go func(targetTx domain.Transaction) {
-		bgCtx := c.Request.Context()
-		_ = h.paymentRepo.UpdateStatus(bgCtx, targetTx.ID, domain.StatusLightningPending, nil)
+		bgCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
 
-		if h.lightningEngine == nil {
-			_ = h.paymentRepo.UpdateFailed(bgCtx, targetTx.ID, domain.StatusSettlementFailed, "Lightning provider offline")
+		if h.settlementService == nil {
+			if h.paymentRepo != nil {
+				_ = h.paymentRepo.UpdateFailed(bgCtx, targetTx.ID, domain.StatusSettlementFailed, "Settlement service unavailable")
+			}
 			return
 		}
 
-		hash, preimage, err := h.lightningEngine.PayInvoice(bgCtx, targetTx.LightningInvoice, 100)
+		hash, preimage, err := h.settlementService.ExecuteLightningSettlement(bgCtx, targetTx.ID, targetTx.LightningInvoice)
 		if err != nil {
-			_ = h.paymentRepo.UpdateFailed(bgCtx, targetTx.ID, domain.StatusSettlementFailed, err.Error())
 			log.Printf("Settlement error for tx %s: %v", targetTx.ID, err)
 			return
 		}
 
-		_ = h.paymentRepo.UpdateSettled(bgCtx, targetTx.ID, hash, preimage)
-		log.Printf("⚡ Payment settled for tx %s (Hash: %s)", targetTx.ID, hash)
+		log.Printf("⚡ Payment successfully settled for tx %s (Hash: %s, Preimage: %s)", targetTx.ID, hash, preimage)
 	}(*tx)
 
 	c.JSON(http.StatusOK, gin.H{"status": "SUCCESS"})
