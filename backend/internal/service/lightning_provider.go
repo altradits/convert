@@ -247,12 +247,13 @@ func (p *LNDRESTProvider) PayInvoice(ctx context.Context, invoice string, maxFee
 		return "", "", errors.New("LND REST provider is not configured")
 	}
 
-	url := fmt.Sprintf("%s/v1/channels/transactions", p.BaseURL)
+	url := fmt.Sprintf("%s/v2/router/send", p.BaseURL)
 	payload := map[string]interface{}{
 		"payment_request": invoice,
-		"fee_limit": map[string]interface{}{
-			"fixed": maxFeeSats,
-		},
+		"timeout_seconds": 60,
+	}
+	if maxFeeSats > 0 {
+		payload["fee_limit_sat"] = maxFeeSats
 	}
 
 	bodyBytes, err := json.Marshal(payload)
@@ -279,19 +280,46 @@ func (p *LNDRESTProvider) PayInvoice(ctx context.Context, invoice string, maxFee
 	}
 
 	var resp struct {
+		Result struct {
+			PaymentError    string `json:"payment_error"`
+			PaymentPreimage string `json:"payment_preimage"`
+			PaymentHash     string `json:"payment_hash"`
+			Status          string `json:"status"`
+			FailureReason   string `json:"failure_reason"`
+		} `json:"result"`
 		PaymentError    string `json:"payment_error"`
 		PaymentPreimage string `json:"payment_preimage"`
 		PaymentHash     string `json:"payment_hash"`
+		Status          string `json:"status"`
+		FailureReason   string `json:"failure_reason"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return "", "", err
 	}
 
-	if resp.PaymentError != "" {
-		return "", "", fmt.Errorf("LND payment routing error: %s", resp.PaymentError)
+	preimage := resp.PaymentPreimage
+	hash := resp.PaymentHash
+	status := resp.Status
+	failReason := resp.FailureReason
+	if resp.Result.PaymentHash != "" {
+		preimage = resp.Result.PaymentPreimage
+		hash = resp.Result.PaymentHash
+		status = resp.Result.Status
+		failReason = resp.Result.FailureReason
 	}
 
-	return resp.PaymentHash, resp.PaymentPreimage, nil
+	if failReason != "" && failReason != "FAILURE_REASON_NONE" {
+		return "", "", fmt.Errorf("LND payment routing failed: %s (status: %s)", failReason, status)
+	}
+	if resp.PaymentError != "" || resp.Result.PaymentError != "" {
+		errStr := resp.PaymentError
+		if errStr == "" {
+			errStr = resp.Result.PaymentError
+		}
+		return "", "", fmt.Errorf("LND payment routing error: %s", errStr)
+	}
+
+	return hash, preimage, nil
 }
 
 // ==========================================
