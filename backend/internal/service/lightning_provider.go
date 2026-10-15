@@ -221,6 +221,24 @@ func (p *LNDRESTProvider) GetBalance(ctx context.Context) (int64, error) {
 
 	var sats int64
 	fmt.Sscanf(resp.LocalBalance.Sat, "%d", &sats)
+
+	// If channel balance is 0, also check on-chain wallet balance
+	if sats == 0 {
+		bcURL := fmt.Sprintf("%s/v1/balance/blockchain", p.BaseURL)
+		if bcReq, err := http.NewRequestWithContext(ctx, http.MethodGet, bcURL, nil); err == nil {
+			bcReq.Header.Set("Grpc-Metadata-macaroon", p.MacaroonHex)
+			if bcRes, err := p.client.Do(bcReq); err == nil {
+				defer bcRes.Body.Close()
+				var bcResp struct {
+					TotalBalance string `json:"total_balance"`
+				}
+				if err := json.NewDecoder(bcRes.Body).Decode(&bcResp); err == nil {
+					fmt.Sscanf(bcResp.TotalBalance, "%d", &sats)
+				}
+			}
+		}
+	}
+
 	return sats, nil
 }
 

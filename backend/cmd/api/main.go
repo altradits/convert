@@ -83,7 +83,7 @@ func main() {
 		lightningEngine.SetProvider(service.NewBlinkProvider(blinkKey))
 		log.Printf("Connected to Blink Lightning API")
 	} else if lndRESTURL := os.Getenv("LND_REST_URL"); lndRESTURL != "" {
-		if lndMac := os.Getenv("LND_MACAROON_HEX"); lndMac != "" {
+		if lndMac := cfg.LNDMacaroonHex; lndMac != "" {
 			lightningEngine.SetProvider(service.NewLNDRESTProvider(lndRESTURL, lndMac))
 			log.Printf("Connected to LND REST Node at %s", lndRESTURL)
 		}
