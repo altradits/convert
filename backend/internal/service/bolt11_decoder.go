@@ -385,15 +385,15 @@ func DecodeBOLT11(invoice string) (*DecodedInvoice, error) {
 	var network string
 	var prefix string
 
-	if strings.HasPrefix(lower, "lnbc") {
+	if strings.HasPrefix(lower, "lnbcrt") {
+		network = "regtest"
+		prefix = "lnbcrt"
+	} else if strings.HasPrefix(lower, "lnbc") {
 		network = "mainnet"
 		prefix = "lnbc"
 	} else if strings.HasPrefix(lower, "lntb") {
 		network = "testnet"
 		prefix = "lntb"
-	} else if strings.HasPrefix(lower, "lnbcrt") {
-		network = "regtest"
-		prefix = "lnbcrt"
 	} else if strings.HasPrefix(lower, "lnsb") {
 		network = "simnet"
 		prefix = "lnsb"
